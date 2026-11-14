@@ -1,0 +1,1175 @@
+{
+  "$schema": "https://mathieudvv.github.io/WinMore-releases/data/screen.schema.json",
+  "type": "screen",
+  "title": "Vitals",
+  "chrome": "fullscreen",
+  "background": "#0C1118",
+  "surface": "#17212D",
+  "accent": "mint",
+  "state": {
+    "editorId": "cpu",
+    "editorName": "Processeur",
+    "editorSize": "large",
+    "editorColor": "mint",
+    "editorVisible": true,
+    "editorWarning": 75,
+    "editorCritical": 90,
+    "editorMax": 100,
+    "editorLow": false,
+    "editorUnit": "%",
+    "pendingInterval": null,
+    "pendingNotifications": null
+  },
+  "let": {
+    "editing": {
+      "find": [
+        "$widgets",
+        "id",
+        "$ui.editorId"
+      ]
+    }
+  },
+  "refresh": {
+    "interval": 1.5,
+    "fast": 0.5,
+    "fastWhen": "$loading"
+  },
+  "bar": {
+    "leading": [
+      {
+        "type": "label",
+        "text": "Vitals",
+        "symbol": "waveform.path.ecg",
+        "style": "headline",
+        "glass": true,
+        "shape": "capsule",
+        "padding": [
+          10,
+          14
+        ]
+      }
+    ],
+    "trailing": [
+      {
+        "type": "button",
+        "symbol": "arrow.clockwise",
+        "variant": "glass",
+        "accessibility": "Actualiser les capteurs",
+        "action": {
+          "command": "refresh",
+          "value": null
+        },
+        "loading": "$refreshing"
+      },
+      {
+        "type": "button",
+        "symbol": "slider.horizontal.3",
+        "variant": "glass",
+        "accessibility": "Ouvrir l’éditeur et les réglages",
+        "action": {
+          "sheet": "settings"
+        }
+      }
+    ]
+  },
+  "body": {
+    "type": "scroll",
+    "spacing": 16,
+    "padding": [
+      12,
+      16,
+      28,
+      16
+    ],
+    "refresh": {
+      "command": "refresh",
+      "value": null
+    },
+    "children": [
+      {
+        "type": "stack",
+        "spacing": 7,
+        "children": [
+          {
+            "type": "text",
+            "text": "VOTRE ORDINATEUR, EN DIRECT",
+            "style": "caption",
+            "weight": "semibold",
+            "color": "secondary"
+          },
+          {
+            "type": "text",
+            "text": "$host",
+            "style": "largeTitle",
+            "weight": "bold",
+            "lines": 2
+          },
+          {
+            "type": "text",
+            "text": "$system",
+            "style": "subheadline",
+            "color": "secondary"
+          },
+          {
+            "type": "stack",
+            "axis": "horizontal",
+            "children": [
+              {
+                "type": "badge",
+                "text": "$status",
+                "symbol": "waveform.path.ecg",
+                "tint": "$statusTint"
+              },
+              {
+                "type": "text",
+                "text": "Toutes les {{interval}} s",
+                "style": "caption",
+                "color": "secondary"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "progress",
+        "label": "Lecture des constantes…",
+        "tint": "mint",
+        "when": "$loading"
+      },
+      {
+        "type": "section",
+        "title": "Collecte partielle",
+        "when": "$error",
+        "children": [
+          {
+            "type": "text",
+            "text": "$error",
+            "style": "callout",
+            "color": "secondary"
+          },
+          {
+            "type": "button",
+            "label": "Réessayer",
+            "action": {
+              "command": "refresh",
+              "value": null
+            },
+            "symbol": "arrow.clockwise",
+            "variant": "plain"
+          }
+        ]
+      },
+      {
+        "type": "each",
+        "items": "$alerts",
+        "as": "alert",
+        "id": "id",
+        "template": {
+          "type": "row",
+          "key": "$alert.id",
+          "title": "{{alert.name}} · {{alert.display}}",
+          "subtitle": "$alert.thresholdText",
+          "symbol": "exclamationmark.triangle",
+          "tint": "$alert.tint",
+          "action": [
+            {
+              "set": "editorId",
+              "value": "$alert.id"
+            },
+            {
+              "set": "editorName",
+              "value": "$alert.name"
+            },
+            {
+              "set": "editorSize",
+              "value": "$alert.size"
+            },
+            {
+              "set": "editorColor",
+              "value": "$alert.color"
+            },
+            {
+              "set": "editorVisible",
+              "value": "$alert.visible"
+            },
+            {
+              "set": "editorWarning",
+              "value": "$alert.warning"
+            },
+            {
+              "set": "editorCritical",
+              "value": "$alert.critical"
+            },
+            {
+              "set": "editorMax",
+              "value": "$alert.max"
+            },
+            {
+              "set": "editorLow",
+              "value": "$alert.low"
+            },
+            {
+              "set": "editorUnit",
+              "value": "$alert.unit"
+            },
+            {
+              "sheet": "editor"
+            }
+          ],
+          "background": "#222C38",
+          "padding": 12,
+          "corner": 18
+        }
+      },
+      {
+        "type": "each",
+        "items": "$rows",
+        "as": "widgetRow",
+        "id": "id",
+        "empty": {
+          "type": "empty",
+          "symbol": "square.grid.2x2",
+          "title": "Votre tableau de bord",
+          "message": "Activez vos premiers widgets dans l’éditeur.",
+          "children": [
+            {
+              "type": "button",
+              "label": "Choisir les widgets",
+              "action": {
+                "sheet": "settings"
+              },
+              "symbol": "plus",
+              "variant": "prominent"
+            }
+          ]
+        },
+        "template": {
+          "type": "grid",
+          "key": "$widgetRow.id",
+          "columns": {
+            "if": [
+              "$env.landscape",
+              {
+                "count": "$widgetRow.items"
+              },
+              {
+                "if": [
+                  "$widgetRow.compact",
+                  {
+                    "count": "$widgetRow.items"
+                  },
+                  1
+                ]
+              }
+            ]
+          },
+          "spacing": 12,
+          "children": [
+            {
+              "type": "each",
+              "items": "$widgetRow.items",
+              "as": "widget",
+              "id": "id",
+              "template": {
+                "type": "card",
+                "key": "$widget.id",
+                "inset": 18,
+                "spacing": 12,
+                "minHeight": "$widget.height",
+                "fill": "width",
+                "longPress": [
+                  {
+                    "set": "editorId",
+                    "value": "$widget.id"
+                  },
+                  {
+                    "set": "editorName",
+                    "value": "$widget.name"
+                  },
+                  {
+                    "set": "editorSize",
+                    "value": "$widget.size"
+                  },
+                  {
+                    "set": "editorColor",
+                    "value": "$widget.color"
+                  },
+                  {
+                    "set": "editorVisible",
+                    "value": "$widget.visible"
+                  },
+                  {
+                    "set": "editorWarning",
+                    "value": "$widget.warning"
+                  },
+                  {
+                    "set": "editorCritical",
+                    "value": "$widget.critical"
+                  },
+                  {
+                    "set": "editorMax",
+                    "value": "$widget.max"
+                  },
+                  {
+                    "set": "editorLow",
+                    "value": "$widget.low"
+                  },
+                  {
+                    "set": "editorUnit",
+                    "value": "$widget.unit"
+                  },
+                  {
+                    "sheet": "editor"
+                  }
+                ],
+                "accessibility": "{{widget.name}} : {{widget.display}}, {{widget.statusLabel}}",
+                "children": [
+                  {
+                    "type": "stack",
+                    "axis": "horizontal",
+                    "fill": "width",
+                    "children": [
+                      {
+                        "type": "label",
+                        "text": "$widget.name",
+                        "symbol": "$widget.symbol",
+                        "style": "subheadline",
+                        "weight": "semibold",
+                        "iconColor": "$widget.tint",
+                        "fill": "width",
+                        "lines": 2
+                      },
+                      {
+                        "type": "button",
+                        "symbol": "slider.horizontal.3",
+                        "variant": "plain",
+                        "size": "small",
+                        "tint": "secondary",
+                        "accessibility": "Modifier {{widget.name}}",
+                        "action": [
+                          {
+                            "set": "editorId",
+                            "value": "$widget.id"
+                          },
+                          {
+                            "set": "editorName",
+                            "value": "$widget.name"
+                          },
+                          {
+                            "set": "editorSize",
+                            "value": "$widget.size"
+                          },
+                          {
+                            "set": "editorColor",
+                            "value": "$widget.color"
+                          },
+                          {
+                            "set": "editorVisible",
+                            "value": "$widget.visible"
+                          },
+                          {
+                            "set": "editorWarning",
+                            "value": "$widget.warning"
+                          },
+                          {
+                            "set": "editorCritical",
+                            "value": "$widget.critical"
+                          },
+                          {
+                            "set": "editorMax",
+                            "value": "$widget.max"
+                          },
+                          {
+                            "set": "editorLow",
+                            "value": "$widget.low"
+                          },
+                          {
+                            "set": "editorUnit",
+                            "value": "$widget.unit"
+                          },
+                          {
+                            "sheet": "editor"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "if",
+                    "test": {
+                      "eq": [
+                        "$widget.size",
+                        "small"
+                      ]
+                    },
+                    "then": {
+                      "type": "stat",
+                      "label": "$widget.statusLabel",
+                      "value": "$widget.display"
+                    },
+                    "else": {
+                      "type": "if",
+                      "test": "$widget.available",
+                      "then": {
+                        "type": "gauge",
+                        "value": "$widget.value",
+                        "min": 0,
+                        "max": "$widget.max",
+                        "text": "$widget.display",
+                        "label": "$widget.statusLabel",
+                        "tint": "$widget.tint",
+                        "height": {
+                          "if": [
+                            {
+                              "eq": [
+                                "$widget.size",
+                                "large"
+                              ]
+                            },
+                            150,
+                            116
+                          ]
+                        },
+                        "fill": "width",
+                        "accessibility": "{{widget.name}} : {{widget.display}}, {{widget.statusLabel}}"
+                      },
+                      "else": {
+                        "type": "empty",
+                        "symbol": "$widget.symbol",
+                        "title": "Non disponible",
+                        "message": "Voir les sources dans Réglages.",
+                        "minHeight": 108
+                      }
+                    }
+                  },
+                  {
+                    "type": "badge",
+                    "text": "$widget.statusLabel",
+                    "tint": "$widget.tint",
+                    "when": {
+                      "and": [
+                        "$widget.available",
+                        {
+                          "eq": [
+                            "$widget.size",
+                            "small"
+                          ]
+                        },
+                        {
+                          "ne": [
+                            "$widget.status",
+                            "normal"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "type": "chart",
+                    "values": "$widget.history",
+                    "kind": "area",
+                    "tint": "$widget.tint",
+                    "min": 0,
+                    "height": 55,
+                    "fill": "width",
+                    "when": {
+                      "and": [
+                        "$widget.available",
+                        {
+                          "eq": [
+                            "$widget.size",
+                            "large"
+                          ]
+                        },
+                        {
+                          "gt": [
+                            {
+                              "count": "$widget.history"
+                            },
+                            1
+                          ]
+                        }
+                      ]
+                    },
+                    "accessibility": "Historique de {{widget.name}} sur la dernière minute"
+                  },
+                  {
+                    "type": "text",
+                    "text": "$widget.detail",
+                    "style": "caption",
+                    "color": "secondary",
+                    "lines": 3,
+                    "when": {
+                      "ne": [
+                        "$widget.size",
+                        "small"
+                      ]
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "text": "$widget.thresholdText",
+                    "style": "caption2",
+                    "color": "secondary",
+                    "when": {
+                      "and": [
+                        "$widget.available",
+                        {
+                          "eq": [
+                            "$widget.size",
+                            "large"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "stack",
+        "spacing": 5,
+        "children": [
+          {
+            "type": "text",
+            "text": "$historyLabel",
+            "style": "caption",
+            "color": "secondary"
+          },
+          {
+            "type": "text",
+            "text": "Relevé {{sampledAt|time}} · démarré depuis {{uptime|duration}}",
+            "style": "caption2",
+            "color": "secondary",
+            "when": {
+              "gt": [
+                "$sampledAt",
+                0
+              ]
+            }
+          },
+          {
+            "type": "text",
+            "text": "Maintenez un widget pour le personnaliser.",
+            "style": "caption2",
+            "color": "tertiary"
+          }
+        ]
+      }
+    ]
+  },
+  "sheets": {
+    "editor": {
+      "title": "Modifier le widget",
+      "detents": [
+        "large"
+      ],
+      "bar": {
+        "trailing": [
+          {
+            "type": "button",
+            "label": "Enregistrer",
+            "action": [
+              {
+                "command": "saveWidget",
+                "value": {
+                  "id": "$ui.editorId",
+                  "visible": "$ui.editorVisible",
+                  "size": "$ui.editorSize",
+                  "color": "$ui.editorColor",
+                  "warning": "$ui.editorWarning",
+                  "critical": "$ui.editorCritical"
+                }
+              },
+              {
+                "refresh": true
+              },
+              {
+                "dismiss": true
+              }
+            ],
+            "variant": "prominent"
+          }
+        ]
+      },
+      "body": {
+        "type": "list",
+        "children": [
+          {
+            "type": "section",
+            "title": "$ui.editorName",
+            "children": [
+              {
+                "type": "stat",
+                "label": "Mesure actuelle",
+                "value": "$editing.display",
+                "symbol": "$editing.symbol"
+              },
+              {
+                "type": "text",
+                "text": "$editing.detail",
+                "style": "caption",
+                "color": "secondary"
+              },
+              {
+                "type": "toggle",
+                "label": "Afficher sur le tableau de bord",
+                "value": "$ui.editorVisible",
+                "action": {
+                  "set": "editorVisible",
+                  "value": "$value"
+                }
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "Apparence",
+            "children": [
+              {
+                "type": "picker",
+                "label": "Taille",
+                "value": "$ui.editorSize",
+                "options": [
+                  {
+                    "label": "Petite",
+                    "value": "small"
+                  },
+                  {
+                    "label": "Moyenne",
+                    "value": "medium"
+                  },
+                  {
+                    "label": "Grande",
+                    "value": "large"
+                  }
+                ],
+                "action": {
+                  "set": "editorSize",
+                  "value": "$value"
+                }
+              },
+              {
+                "type": "picker",
+                "label": "Couleur normale",
+                "value": "$ui.editorColor",
+                "options": [
+                  {
+                    "label": "Menthe",
+                    "value": "mint"
+                  },
+                  {
+                    "label": "Cyan",
+                    "value": "cyan"
+                  },
+                  {
+                    "label": "Bleu",
+                    "value": "blue"
+                  },
+                  {
+                    "label": "Indigo",
+                    "value": "indigo"
+                  },
+                  {
+                    "label": "Violet",
+                    "value": "purple"
+                  },
+                  {
+                    "label": "Rose",
+                    "value": "pink"
+                  },
+                  {
+                    "label": "Vert",
+                    "value": "green"
+                  },
+                  {
+                    "label": "Orange",
+                    "value": "orange"
+                  },
+                  {
+                    "label": "Jaune",
+                    "value": "yellow"
+                  },
+                  {
+                    "label": "Blanc",
+                    "value": "white"
+                  }
+                ],
+                "action": {
+                  "set": "editorColor",
+                  "value": "$value"
+                },
+                "variant": "menu"
+              },
+              {
+                "type": "badge",
+                "text": "Aperçu de la couleur",
+                "symbol": "$editing.symbol",
+                "tint": "$ui.editorColor"
+              },
+              {
+                "type": "text",
+                "text": "Petite : valeur compacte. Moyenne : jauge. Grande : jauge et historique. Deux widgets de même taille peuvent partager une rangée en paysage.",
+                "style": "caption",
+                "color": "secondary"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "Seuils · {{ui.editorUnit}}",
+            "children": [
+              {
+                "type": "text",
+                "text": {
+                  "if": [
+                    "$ui.editorLow",
+                    "Alerte lorsque la valeur descend sous le seuil. Critique doit être inférieur à Vigilance.",
+                    "Alerte lorsque la valeur atteint le seuil. Critique doit être supérieur à Vigilance."
+                  ]
+                },
+                "style": "footnote",
+                "color": "secondary"
+              },
+              {
+                "type": "stepper",
+                "label": "Vigilance · {{ui.editorWarning}} {{ui.editorUnit}}",
+                "value": "$ui.editorWarning",
+                "min": 0,
+                "max": "$ui.editorMax",
+                "step": 1,
+                "action": {
+                  "set": "editorWarning",
+                  "value": "$value"
+                }
+              },
+              {
+                "type": "stepper",
+                "label": "Critique · {{ui.editorCritical}} {{ui.editorUnit}}",
+                "value": "$ui.editorCritical",
+                "min": 0,
+                "max": "$ui.editorMax",
+                "step": 1,
+                "action": {
+                  "set": "editorCritical",
+                  "value": "$value"
+                }
+              },
+              {
+                "type": "text",
+                "text": "Vigilance : orange · Critique : rouge. Le texte indique aussi l’état.",
+                "style": "caption",
+                "color": "secondary"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "Ordre des widgets",
+            "children": [
+              {
+                "type": "button",
+                "label": "Monter",
+                "action": {
+                  "command": "move",
+                  "value": {
+                    "id": "$ui.editorId",
+                    "direction": -1
+                  }
+                },
+                "symbol": "arrow.up",
+                "variant": "plain"
+              },
+              {
+                "type": "button",
+                "label": "Descendre",
+                "action": {
+                  "command": "move",
+                  "value": {
+                    "id": "$ui.editorId",
+                    "direction": 1
+                  }
+                },
+                "symbol": "arrow.down",
+                "variant": "plain"
+              },
+              {
+                "type": "text",
+                "text": "L’ordre est enregistré immédiatement. Les autres changements sont appliqués avec Enregistrer.",
+                "style": "caption",
+                "color": "secondary"
+              }
+            ]
+          },
+          {
+            "type": "button",
+            "label": "Annuler",
+            "action": {
+              "dismiss": true
+            },
+            "variant": "plain"
+          }
+        ]
+      }
+    },
+    "settings": {
+      "title": "Votre tableau de bord",
+      "detents": [
+        "large"
+      ],
+      "bar": {
+        "trailing": [
+          {
+            "type": "button",
+            "label": "Terminer",
+            "action": {
+              "dismiss": true
+            },
+            "variant": "plain"
+          }
+        ]
+      },
+      "body": {
+        "type": "list",
+        "children": [
+          {
+            "type": "section",
+            "title": "Widgets",
+            "children": [
+              {
+                "type": "text",
+                "text": "Touchez un widget pour choisir sa taille, sa couleur et ses seuils. Les widgets masqués restent accessibles ici.",
+                "style": "footnote",
+                "color": "secondary"
+              },
+              {
+                "type": "each",
+                "items": "$widgets",
+                "as": "widget",
+                "id": "id",
+                "template": {
+                  "type": "row",
+                  "key": "$widget.id",
+                  "title": "$widget.name",
+                  "subtitle": {
+                    "if": [
+                      "$widget.visible",
+                      "$widget.display",
+                      "Masqué"
+                    ]
+                  },
+                  "symbol": "$widget.symbol",
+                  "value": {
+                    "if": [
+                      "$widget.visible",
+                      "Visible",
+                      "Masqué"
+                    ]
+                  },
+                  "accessory": "chevron",
+                  "tint": "$widget.color",
+                  "action": [
+                    {
+                      "dismiss": true
+                    },
+                    {
+                      "set": "editorId",
+                      "value": "$widget.id"
+                    },
+                    {
+                      "set": "editorName",
+                      "value": "$widget.name"
+                    },
+                    {
+                      "set": "editorSize",
+                      "value": "$widget.size"
+                    },
+                    {
+                      "set": "editorColor",
+                      "value": "$widget.color"
+                    },
+                    {
+                      "set": "editorVisible",
+                      "value": "$widget.visible"
+                    },
+                    {
+                      "set": "editorWarning",
+                      "value": "$widget.warning"
+                    },
+                    {
+                      "set": "editorCritical",
+                      "value": "$widget.critical"
+                    },
+                    {
+                      "set": "editorMax",
+                      "value": "$widget.max"
+                    },
+                    {
+                      "set": "editorLow",
+                      "value": "$widget.low"
+                    },
+                    {
+                      "set": "editorUnit",
+                      "value": "$widget.unit"
+                    },
+                    {
+                      "sheet": "editor"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "Collecte",
+            "children": [
+              {
+                "type": "picker",
+                "label": "Cadence CPU et mémoire",
+                "value": {
+                  "coalesce": [
+                    "$ui.pendingInterval",
+                    "$interval"
+                  ]
+                },
+                "options": [
+                  {
+                    "label": "1 s",
+                    "value": 1
+                  },
+                  {
+                    "label": "2 s",
+                    "value": 2
+                  },
+                  {
+                    "label": "5 s",
+                    "value": 5
+                  }
+                ],
+                "action": [
+                  {
+                    "set": "pendingInterval",
+                    "value": "$value"
+                  },
+                  {
+                    "command": "interval",
+                    "value": "$value",
+                    "onError": {
+                      "set": "pendingInterval",
+                      "value": null
+                    }
+                  },
+                  {
+                    "refresh": true
+                  },
+                  {
+                    "set": "pendingInterval",
+                    "value": null
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "Les capteurs matériels et le disque sont relus toutes les 5 secondes. Historique : 1 minute, conservé en mémoire pendant la session.",
+                "style": "caption",
+                "color": "secondary"
+              },
+              {
+                "type": "toggle",
+                "label": "Notifier les seuils critiques",
+                "symbol": "bell",
+                "value": {
+                  "coalesce": [
+                    "$ui.pendingNotifications",
+                    "$notifications"
+                  ]
+                },
+                "action": [
+                  {
+                    "set": "pendingNotifications",
+                    "value": "$value"
+                  },
+                  {
+                    "command": "notifications",
+                    "value": "$value",
+                    "onError": {
+                      "set": "pendingNotifications",
+                      "value": null
+                    }
+                  },
+                  {
+                    "refresh": true
+                  },
+                  {
+                    "set": "pendingNotifications",
+                    "value": null
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "Une notification Onbun à l’entrée en état critique, au plus une par minute et par widget.",
+                "style": "caption",
+                "color": "secondary"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "Capteurs",
+            "children": [
+              {
+                "type": "row",
+                "title": "Sources disponibles",
+                "subtitle": "{{availableCount}} mesures accessibles sur 8",
+                "symbol": "waveform.path.ecg",
+                "accessory": "chevron",
+                "action": [
+                  {
+                    "dismiss": true
+                  },
+                  {
+                    "sheet": "sensors"
+                  }
+                ]
+              },
+              {
+                "type": "row",
+                "title": "Télémétrie locale",
+                "value": {
+                  "if": [
+                    "$telemetryConnected",
+                    "Connectée",
+                    "Non connectée"
+                  ]
+                },
+                "symbol": "cable.connector"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "Cet ordinateur",
+            "children": [
+              {
+                "type": "row",
+                "title": "$host",
+                "subtitle": "$system",
+                "symbol": "desktopcomputer"
+              },
+              {
+                "type": "text",
+                "text": "$cpuModel",
+                "style": "caption",
+                "color": "secondary"
+              },
+              {
+                "type": "text",
+                "text": "Aucun compte ni service distant. Seules les mesures et les préférences visuelles sont envoyées au téléphone.",
+                "style": "caption",
+                "color": "secondary"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "sensors": {
+      "title": "Sources et capteurs",
+      "detents": [
+        "large"
+      ],
+      "body": {
+        "type": "list",
+        "children": [
+          {
+            "type": "section",
+            "title": "Ce qui est mesuré",
+            "children": [
+              {
+                "type": "text",
+                "text": "CPU et mémoire : API du système. Disque : espace occupé du volume système, pas le débit ni l’activité. Charge : moyenne Unix sur une minute, normalisée par cœur ; indisponible sous Windows.",
+                "style": "footnote",
+                "color": "secondary"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "GPU et températures",
+            "children": [
+              {
+                "type": "text",
+                "text": "NVIDIA : nvidia-smi, installé avec le pilote, accessible dans le PATH. Windows : lancez Libre Hardware Monitor avec son fournisseur WMI activé. Linux : capteurs CPU hwmon coretemp/k10temp compatibles ; GPU exposant gpu_busy_percent et température AMD. macOS et autres GPU : utilisez la télémétrie locale. Aucun privilège élevé n’est demandé par Vitals.",
+                "style": "footnote",
+                "color": "secondary"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "FPS et télémétrie",
+            "children": [
+              {
+                "type": "text",
+                "text": "Les FPS d’un jeu ne sont pas la fréquence de l’écran. Connectez un outil qui produit de vrais relevés (jeu, outil de capture ou moniteur matériel).",
+                "style": "footnote",
+                "color": "secondary"
+              },
+              {
+                "type": "text",
+                "text": "Sur l’ordinateur : îlot → Réglages → Vitals. Le chemin de telemetry.json et son format y sont indiqués. Votre outil doit écrire un timestamp en millisecondes Unix et les champs fps, gpu, cpuTemp ou gpuTemp toutes les 1 à 5 secondes.",
+                "style": "footnote",
+                "color": "secondary"
+              },
+              {
+                "type": "text",
+                "text": "Après 10 secondes sans mise à jour, les mesures externes expirent. Les champs absents conservent les sources matérielles disponibles. Les données invalides affichent une erreur.",
+                "style": "caption",
+                "color": "secondary"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "État des sources",
+            "children": [
+              {
+                "type": "each",
+                "items": "$widgets",
+                "as": "widget",
+                "id": "id",
+                "template": {
+                  "type": "row",
+                  "key": "$widget.id",
+                  "title": "$widget.name",
+                  "subtitle": {
+                    "if": [
+                      "$widget.available",
+                      "$widget.source",
+                      "$widget.detail"
+                    ]
+                  },
+                  "value": "$widget.display",
+                  "symbol": "$widget.symbol"
+                }
+              }
+            ]
+          },
+          {
+            "type": "button",
+            "label": "Fermer",
+            "action": {
+              "dismiss": true
+            },
+            "variant": "plain"
+          }
+        ]
+      }
+    }
+  }
+}

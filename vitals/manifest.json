@@ -1,0 +1,17 @@
+{
+  "id": "vitals",
+  "name": "Vitals",
+  "shortName": "Vitals",
+  "version": "1.0.1",
+  "description": "Les constantes de votre ordinateur, dans des widgets personnalisables avec historique et seuils.",
+  "entry": "index.cjs",
+  "ui": "kit",
+  "screen": "ui/screen.json",
+  "symbol": "waveform.path.ecg",
+  "icon": "icon.svg",
+  "platforms": [
+    "win32",
+    "darwin",
+    "linux"
+  ]
+}
