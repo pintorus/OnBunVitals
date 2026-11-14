@@ -18,7 +18,8 @@
     "editorLow": false,
     "editorUnit": "%",
     "pendingInterval": null,
-    "pendingNotifications": null
+    "pendingNotifications": null,
+    "page": 0
   },
   "let": {
     "editing": {
@@ -38,14 +39,22 @@
     "leading": [
       {
         "type": "label",
-        "text": "Vitals",
+        "text": {
+          "if": [
+            "$alerts",
+            "$status",
+            "Vitals"
+          ]
+        },
         "symbol": "waveform.path.ecg",
-        "style": "headline",
+        "style": "subheadline",
+        "weight": "semibold",
+        "iconColor": "$statusTint",
         "glass": true,
         "shape": "capsule",
         "padding": [
-          10,
-          14
+          8,
+          12
         ]
       }
     ],
@@ -63,6 +72,16 @@
       },
       {
         "type": "button",
+        "symbol": "square.grid.2x2",
+        "variant": "glass",
+        "accessibility": "Ouvrir l’éditeur de pages sur l’ordinateur",
+        "action": {
+          "command": "openEditor",
+          "value": null
+        }
+      },
+      {
+        "type": "button",
         "symbol": "slider.horizontal.3",
         "variant": "glass",
         "accessibility": "Ouvrir l’éditeur et les réglages",
@@ -73,491 +92,169 @@
     ]
   },
   "body": {
-    "type": "scroll",
-    "spacing": 16,
-    "padding": [
-      12,
-      16,
-      28,
-      16
-    ],
-    "refresh": {
-      "command": "refresh",
-      "value": null
-    },
+    "type": "pager",
+    "height": "screen",
+    "bind": "page",
+    "indicator": "auto",
     "children": [
       {
-        "type": "stack",
-        "spacing": 7,
-        "children": [
-          {
-            "type": "text",
-            "text": "VOTRE ORDINATEUR, EN DIRECT",
-            "style": "caption",
-            "weight": "semibold",
-            "color": "secondary"
-          },
-          {
-            "type": "text",
-            "text": "$host",
-            "style": "largeTitle",
-            "weight": "bold",
-            "lines": 2
-          },
-          {
-            "type": "text",
-            "text": "$system",
-            "style": "subheadline",
-            "color": "secondary"
-          },
-          {
-            "type": "stack",
-            "axis": "horizontal",
-            "children": [
-              {
-                "type": "badge",
-                "text": "$status",
-                "symbol": "waveform.path.ecg",
-                "tint": "$statusTint"
-              },
-              {
-                "type": "text",
-                "text": "Toutes les {{interval}} s",
-                "style": "caption",
-                "color": "secondary"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "type": "progress",
-        "label": "Lecture des constantes…",
-        "tint": "mint",
-        "when": "$loading"
-      },
-      {
-        "type": "section",
-        "title": "Collecte partielle",
-        "when": "$error",
-        "children": [
-          {
-            "type": "text",
-            "text": "$error",
-            "style": "callout",
-            "color": "secondary"
-          },
-          {
-            "type": "button",
-            "label": "Réessayer",
-            "action": {
-              "command": "refresh",
-              "value": null
-            },
-            "symbol": "arrow.clockwise",
-            "variant": "plain"
-          }
-        ]
-      },
-      {
         "type": "each",
-        "items": "$alerts",
-        "as": "alert",
+        "items": "$pages",
+        "as": "pg",
         "id": "id",
         "template": {
-          "type": "row",
-          "key": "$alert.id",
-          "title": "{{alert.name}} · {{alert.display}}",
-          "subtitle": "$alert.thresholdText",
-          "symbol": "exclamationmark.triangle",
-          "tint": "$alert.tint",
-          "action": [
-            {
-              "set": "editorId",
-              "value": "$alert.id"
-            },
-            {
-              "set": "editorName",
-              "value": "$alert.name"
-            },
-            {
-              "set": "editorSize",
-              "value": "$alert.size"
-            },
-            {
-              "set": "editorColor",
-              "value": "$alert.color"
-            },
-            {
-              "set": "editorVisible",
-              "value": "$alert.visible"
-            },
-            {
-              "set": "editorWarning",
-              "value": "$alert.warning"
-            },
-            {
-              "set": "editorCritical",
-              "value": "$alert.critical"
-            },
-            {
-              "set": "editorMax",
-              "value": "$alert.max"
-            },
-            {
-              "set": "editorLow",
-              "value": "$alert.low"
-            },
-            {
-              "set": "editorUnit",
-              "value": "$alert.unit"
-            },
-            {
-              "sheet": "editor"
-            }
-          ],
-          "background": "#222C38",
-          "padding": 12,
-          "corner": 18
-        }
-      },
-      {
-        "type": "each",
-        "items": "$rows",
-        "as": "widgetRow",
-        "id": "id",
-        "empty": {
-          "type": "empty",
-          "symbol": "square.grid.2x2",
-          "title": "Votre tableau de bord",
-          "message": "Activez vos premiers widgets dans l’éditeur.",
-          "children": [
-            {
-              "type": "button",
-              "label": "Choisir les widgets",
-              "action": {
-                "sheet": "settings"
-              },
-              "symbol": "plus",
-              "variant": "prominent"
-            }
-          ]
-        },
-        "template": {
-          "type": "grid",
-          "key": "$widgetRow.id",
-          "columns": {
-            "if": [
-              "$env.landscape",
-              {
-                "count": "$widgetRow.items"
-              },
-              {
-                "if": [
-                  "$widgetRow.compact",
-                  {
-                    "count": "$widgetRow.items"
-                  },
-                  1
-                ]
-              }
-            ]
-          },
+          "type": "stack",
+          "key": "$pg.id",
           "spacing": 12,
+          "padding": [
+            72,
+            16,
+            16,
+            16
+          ],
+          "fill": "both",
           "children": [
+            {
+              "type": "progress",
+              "label": "Lecture des constantes…",
+              "tint": "mint",
+              "when": "$loading"
+            },
             {
               "type": "each",
-              "items": "$widgetRow.items",
-              "as": "widget",
+              "items": "$pg.rows",
+              "as": "row",
               "id": "id",
               "template": {
-                "type": "card",
-                "key": "$widget.id",
-                "inset": 18,
+                "type": "grid",
+                "key": "$row.id",
+                "columns": "$row.columns",
                 "spacing": 12,
-                "minHeight": "$widget.height",
-                "fill": "width",
-                "longPress": [
-                  {
-                    "set": "editorId",
-                    "value": "$widget.id"
-                  },
-                  {
-                    "set": "editorName",
-                    "value": "$widget.name"
-                  },
-                  {
-                    "set": "editorSize",
-                    "value": "$widget.size"
-                  },
-                  {
-                    "set": "editorColor",
-                    "value": "$widget.color"
-                  },
-                  {
-                    "set": "editorVisible",
-                    "value": "$widget.visible"
-                  },
-                  {
-                    "set": "editorWarning",
-                    "value": "$widget.warning"
-                  },
-                  {
-                    "set": "editorCritical",
-                    "value": "$widget.critical"
-                  },
-                  {
-                    "set": "editorMax",
-                    "value": "$widget.max"
-                  },
-                  {
-                    "set": "editorLow",
-                    "value": "$widget.low"
-                  },
-                  {
-                    "set": "editorUnit",
-                    "value": "$widget.unit"
-                  },
-                  {
-                    "sheet": "editor"
-                  }
-                ],
-                "accessibility": "{{widget.name}} : {{widget.display}}, {{widget.statusLabel}}",
                 "children": [
                   {
-                    "type": "stack",
-                    "axis": "horizontal",
-                    "fill": "width",
-                    "children": [
-                      {
-                        "type": "label",
-                        "text": "$widget.name",
-                        "symbol": "$widget.symbol",
-                        "style": "subheadline",
-                        "weight": "semibold",
-                        "iconColor": "$widget.tint",
-                        "fill": "width",
-                        "lines": 2
-                      },
-                      {
-                        "type": "button",
-                        "symbol": "slider.horizontal.3",
-                        "variant": "plain",
-                        "size": "small",
-                        "tint": "secondary",
-                        "accessibility": "Modifier {{widget.name}}",
-                        "action": [
-                          {
-                            "set": "editorId",
-                            "value": "$widget.id"
+                    "type": "each",
+                    "items": "$row.tiles",
+                    "as": "tile",
+                    "id": "id",
+                    "template": {
+                      "type": "card",
+                      "key": "$tile.id",
+                      "inset": 12,
+                      "spacing": 6,
+                      "height": "$row.height",
+                      "fill": "width",
+                      "accessibility": "{{tile.name}} : {{tile.displayText}}, {{tile.statusLabel}}",
+                      "children": [
+                        {
+                          "type": "label",
+                          "text": "$tile.name",
+                          "symbol": "$tile.symbol",
+                          "style": "caption",
+                          "weight": "semibold",
+                          "color": "secondary",
+                          "iconColor": "$tile.tint",
+                          "lines": 1,
+                          "when": "$tile.showLabel"
+                        },
+                        {
+                          "type": "text",
+                          "text": "$tile.name",
+                          "style": "caption2",
+                          "color": "secondary",
+                          "lines": 1,
+                          "when": "$tile.compact"
+                        },
+                        {
+                          "type": "if",
+                          "test": {
+                            "and": [
+                              "$tile.available",
+                              {
+                                "eq": [
+                                  "$tile.display",
+                                  "gauge"
+                                ]
+                              }
+                            ]
                           },
-                          {
-                            "set": "editorName",
-                            "value": "$widget.name"
+                          "then": {
+                            "type": "gauge",
+                            "value": "$tile.value",
+                            "min": 0,
+                            "max": "$tile.max",
+                            "text": "$tile.number",
+                            "tint": "$tile.tint",
+                            "height": "$tile.gaugeHeight",
+                            "fill": "width"
                           },
-                          {
-                            "set": "editorSize",
-                            "value": "$widget.size"
-                          },
-                          {
-                            "set": "editorColor",
-                            "value": "$widget.color"
-                          },
-                          {
-                            "set": "editorVisible",
-                            "value": "$widget.visible"
-                          },
-                          {
-                            "set": "editorWarning",
-                            "value": "$widget.warning"
-                          },
-                          {
-                            "set": "editorCritical",
-                            "value": "$widget.critical"
-                          },
-                          {
-                            "set": "editorMax",
-                            "value": "$widget.max"
-                          },
-                          {
-                            "set": "editorLow",
-                            "value": "$widget.low"
-                          },
-                          {
-                            "set": "editorUnit",
-                            "value": "$widget.unit"
-                          },
-                          {
-                            "sheet": "editor"
+                          "else": {
+                            "type": "stack",
+                            "spacing": 6,
+                            "fill": "both",
+                            "children": [
+                              {
+                                "type": "spacer"
+                              },
+                              {
+                                "type": "stack",
+                                "axis": "horizontal",
+                                "spacing": 4,
+                                "alignment": "bottom",
+                                "children": [
+                                  {
+                                    "type": "text",
+                                    "text": "$tile.number",
+                                    "size": "$tile.bigSize",
+                                    "weight": "heavy",
+                                    "monospaced": true,
+                                    "color": "$tile.tint",
+                                    "lines": 1
+                                  },
+                                  {
+                                    "type": "text",
+                                    "text": "$tile.unit",
+                                    "style": "caption",
+                                    "weight": "semibold",
+                                    "color": "secondary",
+                                    "lines": 1
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "progress",
+                                "value": "$tile.ratio",
+                                "tint": "$tile.tint",
+                                "when": {
+                                  "eq": [
+                                    "$tile.display",
+                                    "bar"
+                                  ]
+                                }
+                              },
+                              {
+                                "type": "chart",
+                                "values": "$tile.history",
+                                "kind": "area",
+                                "tint": "$tile.tint",
+                                "min": 0,
+                                "height": "$tile.chartHeight",
+                                "fill": "width",
+                                "when": "$tile.showChart"
+                              }
+                            ]
                           }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "type": "if",
-                    "test": {
-                      "eq": [
-                        "$widget.size",
-                        "small"
-                      ]
-                    },
-                    "then": {
-                      "type": "stat",
-                      "label": "$widget.statusLabel",
-                      "value": "$widget.display"
-                    },
-                    "else": {
-                      "type": "if",
-                      "test": "$widget.available",
-                      "then": {
-                        "type": "gauge",
-                        "value": "$widget.value",
-                        "min": 0,
-                        "max": "$widget.max",
-                        "text": "$widget.display",
-                        "label": "$widget.statusLabel",
-                        "tint": "$widget.tint",
-                        "height": {
-                          "if": [
-                            {
-                              "eq": [
-                                "$widget.size",
-                                "large"
-                              ]
-                            },
-                            150,
-                            116
-                          ]
-                        },
-                        "fill": "width",
-                        "accessibility": "{{widget.name}} : {{widget.display}}, {{widget.statusLabel}}"
-                      },
-                      "else": {
-                        "type": "empty",
-                        "symbol": "$widget.symbol",
-                        "title": "Non disponible",
-                        "message": "Voir les sources dans Réglages.",
-                        "minHeight": 108
-                      }
-                    }
-                  },
-                  {
-                    "type": "badge",
-                    "text": "$widget.statusLabel",
-                    "tint": "$widget.tint",
-                    "when": {
-                      "and": [
-                        "$widget.available",
-                        {
-                          "eq": [
-                            "$widget.size",
-                            "small"
-                          ]
-                        },
-                        {
-                          "ne": [
-                            "$widget.status",
-                            "normal"
-                          ]
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "type": "chart",
-                    "values": "$widget.history",
-                    "kind": "area",
-                    "tint": "$widget.tint",
-                    "min": 0,
-                    "height": 55,
-                    "fill": "width",
-                    "when": {
-                      "and": [
-                        "$widget.available",
-                        {
-                          "eq": [
-                            "$widget.size",
-                            "large"
-                          ]
-                        },
-                        {
-                          "gt": [
-                            {
-                              "count": "$widget.history"
-                            },
-                            1
-                          ]
-                        }
-                      ]
-                    },
-                    "accessibility": "Historique de {{widget.name}} sur la dernière minute"
-                  },
-                  {
-                    "type": "text",
-                    "text": "$widget.detail",
-                    "style": "caption",
-                    "color": "secondary",
-                    "lines": 3,
-                    "when": {
-                      "ne": [
-                        "$widget.size",
-                        "small"
-                      ]
-                    }
-                  },
-                  {
-                    "type": "text",
-                    "text": "$widget.thresholdText",
-                    "style": "caption2",
-                    "color": "secondary",
-                    "when": {
-                      "and": [
-                        "$widget.available",
-                        {
-                          "eq": [
-                            "$widget.size",
-                            "large"
-                          ]
                         }
                       ]
                     }
                   }
                 ]
               }
+            },
+            {
+              "type": "spacer"
             }
           ]
         }
-      },
-      {
-        "type": "stack",
-        "spacing": 5,
-        "children": [
-          {
-            "type": "text",
-            "text": "$historyLabel",
-            "style": "caption",
-            "color": "secondary"
-          },
-          {
-            "type": "text",
-            "text": "Relevé {{sampledAt|time}} · démarré depuis {{uptime|duration}}",
-            "style": "caption2",
-            "color": "secondary",
-            "when": {
-              "gt": [
-                "$sampledAt",
-                0
-              ]
-            }
-          },
-          {
-            "type": "text",
-            "text": "Maintenez un widget pour le personnaliser.",
-            "style": "caption2",
-            "color": "tertiary"
-          }
-        ]
       }
     ]
   },
@@ -613,15 +310,6 @@
                 "text": "$editing.detail",
                 "style": "caption",
                 "color": "secondary"
-              },
-              {
-                "type": "toggle",
-                "label": "Afficher sur le tableau de bord",
-                "value": "$ui.editorVisible",
-                "action": {
-                  "set": "editorVisible",
-                  "value": "$value"
-                }
               }
             ]
           },
@@ -629,29 +317,6 @@
             "type": "section",
             "title": "Apparence",
             "children": [
-              {
-                "type": "picker",
-                "label": "Taille",
-                "value": "$ui.editorSize",
-                "options": [
-                  {
-                    "label": "Petite",
-                    "value": "small"
-                  },
-                  {
-                    "label": "Moyenne",
-                    "value": "medium"
-                  },
-                  {
-                    "label": "Grande",
-                    "value": "large"
-                  }
-                ],
-                "action": {
-                  "set": "editorSize",
-                  "value": "$value"
-                }
-              },
               {
                 "type": "picker",
                 "label": "Couleur normale",
@@ -709,12 +374,6 @@
                 "text": "Aperçu de la couleur",
                 "symbol": "$editing.symbol",
                 "tint": "$ui.editorColor"
-              },
-              {
-                "type": "text",
-                "text": "Petite : valeur compacte. Moyenne : jauge. Grande : jauge et historique. Deux widgets de même taille peuvent partager une rangée en paysage.",
-                "style": "caption",
-                "color": "secondary"
               }
             ]
           },
@@ -767,44 +426,6 @@
             ]
           },
           {
-            "type": "section",
-            "title": "Ordre des widgets",
-            "children": [
-              {
-                "type": "button",
-                "label": "Monter",
-                "action": {
-                  "command": "move",
-                  "value": {
-                    "id": "$ui.editorId",
-                    "direction": -1
-                  }
-                },
-                "symbol": "arrow.up",
-                "variant": "plain"
-              },
-              {
-                "type": "button",
-                "label": "Descendre",
-                "action": {
-                  "command": "move",
-                  "value": {
-                    "id": "$ui.editorId",
-                    "direction": 1
-                  }
-                },
-                "symbol": "arrow.down",
-                "variant": "plain"
-              },
-              {
-                "type": "text",
-                "text": "L’ordre est enregistré immédiatement. Les autres changements sont appliqués avec Enregistrer.",
-                "style": "caption",
-                "color": "secondary"
-              }
-            ]
-          },
-          {
             "type": "button",
             "label": "Annuler",
             "action": {
@@ -837,13 +458,23 @@
         "children": [
           {
             "type": "section",
-            "title": "Widgets",
+            "title": "Mesures",
             "children": [
               {
                 "type": "text",
-                "text": "Touchez un widget pour choisir sa taille, sa couleur et ses seuils. Les widgets masqués restent accessibles ici.",
+                "text": "Touchez une mesure pour régler ses seuils et sa couleur. Les pages et les tuiles se composent dans l’éditeur sur l’ordinateur.",
                 "style": "footnote",
                 "color": "secondary"
+              },
+              {
+                "type": "button",
+                "label": "Ouvrir l’éditeur de pages sur l’ordinateur",
+                "symbol": "square.grid.2x2",
+                "variant": "bordered",
+                "action": {
+                  "command": "openEditor",
+                  "value": null
+                }
               },
               {
                 "type": "each",
@@ -858,15 +489,15 @@
                     "if": [
                       "$widget.visible",
                       "$widget.display",
-                      "Masqué"
+                      "Sur aucune page"
                     ]
                   },
                   "symbol": "$widget.symbol",
                   "value": {
                     "if": [
                       "$widget.visible",
-                      "Visible",
-                      "Masqué"
+                      "Affiché",
+                      "—"
                     ]
                   },
                   "accessory": "chevron",

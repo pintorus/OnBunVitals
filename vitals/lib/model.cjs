@@ -10,8 +10,11 @@ const definitions = [
   { id: 'fps', name: 'Images par seconde', symbol: 'gamecontroller', unit: 'FPS', max: 360, warning: 50, critical: 30, low: true, color: 'green' },
   { id: 'load', name: 'Charge système', symbol: 'chart.bar', unit: '%', max: 200, warning: 100, critical: 150, color: 'teal', visible: process.platform !== 'win32' }
 ];
-const colors = ['mint', 'cyan', 'blue', 'indigo', 'purple', 'pink', 'green', 'orange', 'yellow', 'white'];
-const defaults = () => ({ interval: 2, notifications: false, widgets: definitions.map(d => ({ id: d.id, visible: d.visible !== false, size: d.size || 'medium', color: d.color, warning: d.warning, critical: d.critical })) });
+const colors = ['mint', 'cyan', 'teal', 'blue', 'indigo', 'purple', 'pink', 'green', 'orange', 'yellow', 'white'];
+const defaultWidgets = () => definitions.map(d => ({ id: d.id, visible: d.visible !== false, size: d.size || 'medium', color: d.color, warning: d.warning, critical: d.critical }));
+// The layout module needs `definitions`, so it is loaded lazily to avoid a require cycle.
+const layout = () => require('./layout.cjs');
+const defaults = () => ({ version: 2, interval: 2, notifications: false, widgets: defaultWidgets(), pages: layout().defaultPages() });
 
 function validateWidget(value) {
   const d = definitions.find(d => d.id === value?.id);
@@ -33,6 +36,8 @@ function restore(raw) {
     for (const w of raw.widgets) { try { if (!found.has(w.id)) found.set(w.id, validateWidget(w)); } catch {} }
     config.widgets = [...found.values(), ...config.widgets.filter(w => !found.has(w.id))];
   }
+  if (raw.pages !== undefined) { try { config.pages = layout().validatePages(raw.pages); } catch {} }
+  else if (Array.isArray(raw.widgets)) config.pages = layout().fromWidgets(config.widgets);
   return config;
 }
 

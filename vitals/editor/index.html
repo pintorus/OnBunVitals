@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vitals · Éditeur de pages</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="dot"></span>Vitals <small>Éditeur de pages</small></div>
+    <nav id="tabs" class="tabs" aria-label="Pages"></nav>
+    <button id="addPage" class="ghost" title="Ajouter une page">＋ Page</button>
+    <div class="spacer"></div>
+    <span id="status" class="status" role="status"></span>
+    <button id="revert" class="ghost" disabled>Annuler</button>
+    <button id="save" class="primary" disabled>Envoyer au téléphone</button>
+  </header>
+
+  <main class="workspace">
+    <section class="stage">
+      <div class="stage-bar">
+        <label>Page <input id="pageName" maxlength="24" spellcheck="false"></label>
+        <button id="pageLeft" class="ghost" title="Déplacer la page à gauche">◀</button>
+        <button id="pageRight" class="ghost" title="Déplacer la page à droite">▶</button>
+        <button id="pageDelete" class="ghost danger">Supprimer la page</button>
+        <div class="spacer"></div>
+        <div class="seg" id="orientation" role="radiogroup" aria-label="Aperçu">
+          <button data-o="landscape" class="on">Paysage</button><button data-o="portrait">Portrait</button>
+        </div>
+      </div>
+      <div class="phone-wrap">
+        <div id="phone" class="phone landscape">
+          <div class="rail"></div>
+          <div id="screen" class="screen"></div>
+        </div>
+      </div>
+      <p id="fit" class="fit"></p>
+      <button id="addRow" class="ghost wide">＋ Ajouter une rangée</button>
+    </section>
+
+    <aside class="inspector" id="inspector"></aside>
+  </main>
+
+  <template id="hint">
+    <h2>Composer une page</h2>
+    <ol class="hint">
+      <li>Cliquez une tuile pour choisir sa mesure, son affichage et sa couleur.</li>
+      <li>Glissez une tuile vers une autre rangée, ou sur une tuile pour l’échanger.</li>
+      <li>Une rangée accueille 1 à 4 tuiles de même largeur ; sa hauteur se règle à droite.</li>
+      <li>Les couleurs passent à l’orange puis au rouge quand un seuil est franchi.</li>
+      <li><b>Envoyer au téléphone</b> applique la mise en page en direct.</li>
+    </ol>
+  </template>
+  <script src="editor.js"></script>
+</body>
+</html>

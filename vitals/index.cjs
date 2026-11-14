@@ -4,6 +4,8 @@ const os = require('node:os');
 const fs = require('node:fs');
 const path = require('node:path');
 const model = require('./lib/model.cjs');
+const layout = require('./lib/layout.cjs');
+const { createEditorServer } = require('./lib/editor-server.cjs');
 const { cpuSnapshot, cpuUsage, createSensors } = require('./lib/sensors.cjs');
 
 function activate(ctx) {
@@ -16,15 +18,44 @@ function activate(ctx) {
   let histories = {}, cache, revision = 0, timer, slowTimer, closed = false, sampling = false, slowBusy = false;
   let started = false, refreshing = true, error = '', telemetryError = '', sampledAt = 0;
   const alarmStates = new Map(), notifiedAt = new Map();
+  let editorWindow, editorUrl = '';
+  const editor = createEditorServer({
+    state: () => ({ revision: cache.revision, interval: config.interval, pages: config.pages, widgets: cache.widgets.map(({ history, ...w }) => w),
+      colors: model.colors, displays: layout.displays, heights: layout.heights, limits: layout.LIMITS, fit: layout.FIT, spacing: layout.SPACING }),
+    save(value) {
+      if (!value || typeof value !== 'object') throw new Error('Mise en page invalide.');
+      const pages = layout.validatePages(value.pages);
+      const widgets = Array.isArray(value.widgets) ? config.widgets.map(w => { const next = value.widgets.find(n => n?.id === w.id); return next ? model.validateWidget({ ...w, ...next, id: w.id }) : w; }) : config.widgets;
+      save({ ...config, version: 2, pages, widgets });
+    }
+  });
+
+  async function openEditor() {
+    editorUrl = await editor.start();
+    const electron = ctx.electron;
+    if (electron?.BrowserWindow) {
+      if (editorWindow && !editorWindow.isDestroyed()) { editorWindow.show(); editorWindow.focus(); return; }
+      editorWindow = new electron.BrowserWindow({ width: 1280, height: 820, minWidth: 960, minHeight: 640, title: 'Vitals · Éditeur de pages', backgroundColor: '#0C1118', autoHideMenuBar: true,
+        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
+      // Links leave the editor for the real browser; the editor itself never navigates away.
+      editorWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      editorWindow.webContents.on('will-navigate', e => e.preventDefault());
+      await editorWindow.loadURL(editorUrl);
+    } else if (electron?.shell?.openExternal) await electron.shell.openExternal(editorUrl);
+    else throw new Error(`Ouvrez l’éditeur dans votre navigateur : ${editorUrl}`);
+  }
 
   function rebuild() {
-    const widgets = model.view(config, readings, histories);
+    // A metric is shown (and may alert) when at least one tile of a page displays it.
+    const onPage = new Set(config.pages.flatMap(p => p.rows.flatMap(r => r.tiles.map(t => t.metric))));
+    const widgets = model.view(config, readings, histories).map(w => ({ ...w, visible: onPage.has(w.id) }));
     const alerts = widgets.filter(w => w.visible && ['warning', 'critical'].includes(w.status));
     cache = {
       revision: ++revision, loading: !started, refreshing, error: [configError, error, telemetryError].filter(Boolean).join(' '),
       host: os.hostname(), system: `${{ win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform] || os.type()} · ${os.cpus().length} cœurs logiques`,
       cpuModel: os.cpus()[0]?.model || 'Processeur', uptime: Math.floor(os.uptime()), sampledAt,
-      interval: config.interval, notifications: config.notifications, widgets, rows: model.rows(widgets), alerts,
+      interval: config.interval, notifications: config.notifications, widgets, alerts,
+      pages: layout.view(config.pages, widgets), pageCount: config.pages.length, editorUrl,
       visibleCount: widgets.filter(w => w.visible).length,
       status: alerts.length ? `${alerts.length} seuil${alerts.length > 1 ? 's' : ''} dépassé${alerts.length > 1 ? 's' : ''}` : 'Tout est sous contrôle',
       statusTint: alerts.some(w => w.status === 'critical') ? 'red' : alerts.length ? 'orange' : 'mint',
@@ -108,6 +139,9 @@ function activate(ctx) {
       } else if (action === 'notifications') {
         if (typeof value !== 'boolean') throw new Error('Choisissez d’activer ou de désactiver les alertes.');
         save({ ...config, notifications: value });
+      } else if (action === 'openEditor') {
+        openEditor().catch(e => { ctx.log?.error?.('Vitals editor', e); });
+        return { opened: true };
       } else if (action === 'refresh') {
         clearTimeout(slowTimer); if (!slowBusy) void slowSample();
         clearTimeout(timer); if (!sampling) void sample();
@@ -118,11 +152,12 @@ function activate(ctx) {
       const cpu = cache.widgets.find(w => w.id === 'cpu');
       return { priority: cache.alerts.length ? 12 : 1,
         compact: { title: cache.alerts.length ? cache.status : `CPU ${cpu.display}`, accent: cache.alerts.length ? '#FF9F0A' : '#63E6BE' },
-        expanded: { title: 'Vitals', subtitle: `${cpu.display} CPU · ${cache.widgets.find(w => w.id === 'memory').display} RAM`, footer: { label: 'Actualiser les capteurs', action: 'refresh', note: cache.status } } };
+        expanded: { title: 'Vitals', subtitle: `${cpu.display} CPU · ${cache.widgets.find(w => w.id === 'memory').display} RAM`, footer: { label: 'Ouvrir l’éditeur de pages', action: 'openEditor', note: cache.status } } };
     },
     settings: {
       describe() { return { status: { label: cache.status, tone: cache.alerts.length ? 'warning' : 'success' }, items: [
-        { type: 'text', text: 'Personnalisez chaque widget sur le téléphone : taille, couleur, seuils et ordre.' },
+        { type: 'text', text: 'Composez vos pages de tuiles dans l’éditeur PC : depuis l’îlot (Vitals → Éditeur) ou le bouton Éditeur du téléphone.' },
+        ...(editorUrl ? [{ type: 'text', text: `Éditeur ouvert sur ${editorUrl.split('#')[0]}` }] : []),
         { type: 'note', text: 'CPU et mémoire : système. GPU NVIDIA : nvidia-smi. Windows : Libre Hardware Monitor (WMI). Linux : hwmon CPU et GPU compatibles. Autres GPU et FPS : télémétrie locale.' },
         { type: 'text', text: `Fichier de télémétrie : ${path.join(ctx.dataDir, 'telemetry.json')}` },
         { type: 'note', text: 'JSON : timestamp (millisecondes Unix), fps, gpu (%), cpuTemp et gpuTemp (°C). Écrivez atomiquement toutes les 1 à 5 s ; les valeurs expirent après 10 s.' },
@@ -134,7 +169,7 @@ function activate(ctx) {
         return { saved: true };
       }
     },
-    close() { closed = true; clearTimeout(timer); clearTimeout(slowTimer); sensors.close(); }
+    close() { closed = true; try { if (editorWindow && !editorWindow.isDestroyed()) editorWindow.close(); } catch {} editor.close(); clearTimeout(timer); clearTimeout(slowTimer); sensors.close(); }
   };
 }
 

@@ -10,28 +10,32 @@ Open **Onbun island → Settings → Apps → Open folder**, then copy the compl
 
 To update, copy the new app files over the installed app. Preferences live separately in Onbun’s private app-data directory, so replacing the app files preserves them. Reloading the app clears its in-memory history.
 
-## Dashboard and widget editor
+## Pages, tiles and the PC editor
 
-The top bar provides a refresh button and a settings button. The dashboard shows the computer name, operating system, logical CPU count and threshold summary. Widgets show actual readings or an unavailable state.
+The phone shows one full-screen page at a time; swipe sideways to change page. Each page is a stack of **rows**, and the tiles of a row share its width equally. Pages never scroll: the editor warns when a page is taller than a landscape phone (280 pt under the bar) or a portrait one (600 pt).
 
-Tap the settings icon on a widget, or long-press it, to edit it. Open the top-bar settings to find hidden widgets.
+| Element | Options |
+|---|---|
+| Page | Name (1–24 characters), order. 1 to 8 pages. |
+| Row | Height: Fine (72 pt), Moyenne (124 pt), Haute (176 pt), Très haute (260 pt). 1 to 4 rows per page, 1 to 4 tiles per row. |
+| Tile | Metric, display (Chiffre: large number · Jauge: gauge · Courbe: one-minute chart · Barre: number and bar), color (or the metric's color). |
+| Metric | Warning and critical thresholds and default color, shared by every tile that shows it. |
 
-| Control | Behavior |
-| --- | --- |
-| Small / Petite | Compact numeric reading. |
-| Medium / Moyenne | Gauge and measurement details. |
-| Large / Grande | Gauge, details, thresholds and a one-minute chart once enough samples exist. |
-| Normal color | Choose mint, cyan, blue, indigo, purple, pink, green, orange, yellow or white. |
-| Visibility | Include or hide the widget on the dashboard. Hidden widgets remain in settings. |
-| Warning / Vigilance | Orange state, with a text label. |
-| Critical / Critique | Red state, with a text label. |
-| Save / Enregistrer | Validate and save the widget’s visibility, size, color and thresholds. |
-| Cancel / Annuler | Discard unsaved edits to those fields. |
-| Move up / Monter; Move down / Descendre | Save the ordering change immediately, even if you later cancel the other edits. |
+Tiles keep their chosen color and turn orange at the warning threshold and red at the critical one. A metric that sits on no page is not shown, does not count in the alert summary and does not notify.
 
-Large widgets occupy a full row. Two consecutive medium or small widgets of the same size can share a row in landscape; small widgets can also share a row in portrait. Layout follows the saved order, without drag-and-drop or arbitrary pixel dimensions.
+### Opening the editor
 
-For CPU, memory, disk, GPU, temperatures and load, a reading **at or above** a threshold triggers its state. The critical threshold must exceed the warning threshold. For FPS, a reading **at or below** a threshold triggers its state, and the critical threshold must be lower than the warning threshold. Threshold ranges are validated before saving.
+The editor runs on the computer, in a window opened by Onbun (Windows, macOS and Linux). Open it from the grid button in the phone's top bar, from **Mesures → Ouvrir l’éditeur de pages** in the phone settings, or from the Vitals card on the island. It shows live values in a phone-shaped preview, in landscape or portrait.
+
+Click a row or a tile to edit it on the right. Drag a tile onto another row to move it, or onto a tile to swap them. Delete removes the selected tile and Escape clears the selection. **Envoyer au téléphone** (Ctrl/⌘+S) validates and saves the layout; the phone updates on its next refresh. **Annuler** discards unsent changes. Closing the window discards them too.
+
+The editor is served by the app on `127.0.0.1` only, on a random port, and every API call needs a random token that is generated at launch and passed in the URL fragment. Other hosts are refused.
+
+On the phone, the settings sheet still edits each metric's thresholds and color.
+
+### Upgrading from 1.0
+
+Version 1.0 settings listed widgets instead of pages. On first launch, visible widgets are converted into pages in their saved order: large widgets become a chart row, and medium or small widgets are grouped into rows of up to two or four, with three rows per page.
 
 ### Sampling and history
 
@@ -43,7 +47,7 @@ Charts retain the last 60 seconds, capped at 120 points per metric. They reset w
 
 ### Notifications and the desktop island
 
-Critical notifications are optional and disabled by default. When enabled, visible widgets can post an Onbun notification on entering the critical state, at most once per minute per widget. Remaining critical does not produce a continuous stream of notifications. These are Onbun notifications; Vitals does not independently send email, SMS or push messages.
+Critical notifications are optional and disabled by default. When enabled, metrics shown on a page can post an Onbun notification on entering the critical state, at most once per minute per widget. Remaining critical does not produce a continuous stream of notifications. These are Onbun notifications; Vitals does not independently send email, SMS or push messages.
 
 The desktop island shows a CPU summary or a threshold alert. Its expanded card shows CPU and memory readings and a refresh action.
 
@@ -144,7 +148,7 @@ Private runtime files are separate:
 
 | File | Purpose |
 | --- | --- |
-| `ctx.dataDir/settings.json` | Widget order, visibility, sizes, colors, thresholds, sampling interval and notification preference. |
+| `ctx.dataDir/settings.json` | Pages, rows and tiles, metric colors and thresholds, sampling interval and notification preference. |
 | `ctx.dataDir/settings.json.tmp` | Temporary file used for atomic preference writes. |
 | `ctx.dataDir/telemetry.json` | Optional payload written by your external telemetry publisher. |
 
@@ -157,7 +161,8 @@ If preferences cannot be read, defaults are used and a warning is shown. The nex
 | Symptom | Check |
 | --- | --- |
 | Vitals does not appear | Copy `vitals` directly into the active Onbun apps folder. Check that `vitals/manifest.json` exists and its ID is `vitals`. |
-| A widget is missing | Open the top-bar settings and enable its visibility. |
+| A metric is missing | Open the page editor and add a tile for it. |
+| The editor does not open | Check that Onbun is running on the computer, then use the island's Vitals card. |
 | A sensor says Indisponible | Check its source in Settings → Capteurs. Unsupported hardware is expected to show this state. |
 | NVIDIA readings are unavailable | Ensure `nvidia-smi` is accessible to the Onbun process. After correcting the environment, allow the 60-second retry delay or reload the app. |
 | Windows temperature/GPU data are missing | Confirm Libre Hardware Monitor is running and its WMI provider is accessible. The CPU and memory widgets do not require it. |
@@ -175,17 +180,18 @@ No npm installation or build step is required. For tests, use a modern Node.js r
 node vitals/test/vitals.test.cjs
 ```
 
-Tests cover CPU deltas, threshold validation and FPS direction, configuration restoration, row grouping, telemetry validation and file limits, real-host sampling, saving, command errors and shutdown.
+Tests cover CPU deltas, threshold validation and FPS direction, configuration restoration, page validation, migration from 1.0, page fit, telemetry validation and file limits, real-host sampling, saving, command errors and shutdown.
 
-The backend exports `activate(ctx)`, returning `data()`, `command(action, value)`, `close()`, `island()` and desktop `settings`. Sensor loops run in the background, `data()` returns cached plain JSON with `loading` and `revision`, and `close()` stops timers and child processes.
+Pages are saved by the PC editor through `PUT /api/layout` (`{pages, widgets}`), validated by `lib/layout.cjs`. The backend exports `activate(ctx)`, returning `data()`, `command(action, value)`, `close()`, `island()` and desktop `settings`. Sensor loops run in the background, `data()` returns cached plain JSON with `loading` and `revision`, and `close()` stops timers and child processes.
 
 | Command | Value |
 | --- | --- |
 | `saveWidget` | `{id, visible, size, color, warning, critical}`; ID must identify an existing metric. |
-| `move` | `{id, direction}` with direction `-1` or `1`. |
+| `move` | `{id, direction}` with direction `-1` or `1` (metric order in the settings list). |
 | `interval` | Number `1`, `2` or `5` (seconds). |
 | `notifications` | Boolean. |
 | `refresh` | No value required; requests background collection. |
+| `openEditor` | No value required; opens the PC page editor and returns `{ "opened": true }`. |
 
 Successful commands return `{ "saved": true }`; refresh returns before collection completes. Invalid commands or settings throw readable errors for Onbun to display.
 

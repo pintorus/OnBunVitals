@@ -1,14 +1,14 @@
 # OnbunVitals
 
-A native system-monitoring dashboard for [Onbun](https://mathieudvv.github.io/WinMore-releases/docs.html), with configurable widgets on your iPhone or Android phone. The monitoring backend runs on your Windows, macOS or Linux computer.
+A native system-monitoring dashboard for [Onbun](https://mathieudvv.github.io/WinMore-releases/docs.html), as a heads-up display of tiled pages on your iPhone or Android phone. The monitoring backend runs on your Windows, macOS or Linux computer.
 
 ## Features
 
+- **A heads-up display for gamers**: swipe between full-screen pages of tiles on your phone, and read FPS, CPU, GPU and temperatures without leaving fullscreen or cluttering your game.
+- **A real page editor on your computer** (Windows, macOS, Linux): add pages, build rows of 1–4 tiles, set each row's height, choose each tile's metric, display (number, gauge, chart or bar) and color, drag tiles between rows, with a live preview in landscape and portrait.
+- Tiles stay calm and turn orange or red only when a warning or critical threshold is crossed.
 - CPU usage, memory, system-disk space, GPU usage, CPU/GPU temperatures, FPS and system load, when supported by your hardware or a local telemetry source.
-- A built-in widget editor: three sizes, ten colors, visibility, ordering, warning thresholds and critical thresholds.
-- Gauges, a rolling one-minute history for large widgets, and optional Onbun critical notifications.
-- Native portrait and landscape layouts, a desktop-island summary and settings saved on your computer.
-- No npm dependencies, account or remote monitoring service.
+- Optional Onbun critical notifications, settings saved on your computer, no npm dependencies, account or remote service.
 
 The app interface is currently in French. This README and the documentation are in English.
 
@@ -23,9 +23,17 @@ Copy `vitals`, rather than the repository folder `OnBunVitals`. Node.js is provi
 
 ## Customize
 
-Tap a widget’s settings icon, or long-press the widget. The settings button in the top bar lists every widget, including hidden ones.
+Open the editor from the grid button in the phone's top bar, or from the Vitals card on the Onbun island (**Ouvrir l’éditeur de pages**). It opens in a window on your computer.
 
-Choose a size, color and thresholds, then tap **Enregistrer** (Save). **Annuler** means Cancel. **Monter** and **Descendre** move a widget up or down and save its position immediately.
+- Pick a page in the tabs at the top, or add one with **＋ Page** (up to 8).
+- Click a row to set its height or add a tile; click a tile to choose its metric, display and color, and to edit that metric's thresholds.
+- Drag a tile onto another row to move it, or onto another tile to swap them.
+- The preview warns when a page is taller than the phone screen, so a HUD page never needs scrolling.
+- **Envoyer au téléphone** (Send to phone, or Ctrl/⌘+S) saves the layout, and the phone updates immediately. **Annuler** discards unsent changes.
+
+Existing setups from version 1.0 are converted into pages automatically on first launch.
+
+The editor is served only on `127.0.0.1`, behind a random token that changes on every launch.
 
 ## Sensor availability
 

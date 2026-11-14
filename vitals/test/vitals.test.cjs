@@ -94,7 +94,9 @@ test('app samples real host, caches JSON, persists edits, rejects commands and c
   assert.doesNotThrow(() => JSON.stringify(data));
   const widget = { ...model.defaults().widgets[0], size: 'small', color: 'blue', visible: false };
   app.command('saveWidget', widget);
-  assert.equal(app.data().widgets[0].visible, false);
+  assert.equal(app.data().widgets[0].visible, true, 'a metric shown on a page stays visible');
+  assert.equal(app.data().widgets[0].color, 'blue');
+  assert.equal(app.data().pages[0].rows[0].tiles.length, 3);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'))).widgets[0].size, 'small');
   app.command('move', { id: 'cpu', direction: 1 });
   assert.equal(app.data().widgets[1].id, 'cpu');
@@ -123,4 +125,57 @@ test('write failure retains current settings', t => {
   assert.throws(() => app.command('interval', 5), /enregistrer/);
   assert.equal(app.data().interval, 2);
   assert.equal(fs.readFileSync(blocked, 'utf8'), 'keep');
+});
+
+const layout = require('../lib/layout.cjs');
+
+test('default pages validate and bind live values into equal-width rows', () => {
+  const config = model.defaults();
+  assert.deepEqual(layout.validatePages(config.pages), config.pages);
+  const pages = layout.view(config.pages, model.view(config, { fps: { value: 25 } }, {}));
+  assert.equal(pages[0].name, 'Jeu');
+  const fps = pages[0].rows[0].tiles.find(t => t.metric === 'fps');
+  assert.equal(fps.number, '25');
+  assert.equal(fps.status, 'critical');
+  assert.equal(fps.tint, 'red');
+  assert.equal(pages[0].rows[0].columns, pages[0].rows[0].tiles.length);
+});
+
+test('page validation enforces the limits the phone can draw', () => {
+  const ok = model.defaults().pages;
+  const bad = mutate => { const p = JSON.parse(JSON.stringify(ok)); mutate(p); return () => layout.validatePages(p); };
+  assert.throws(bad(p => { p[0].rows[0].tiles.push(...p[0].rows[1].tiles.map(t => ({ ...t, id: t.id + 'x' })), { id: 'zz', metric: 'cpu', display: 'value', color: 'auto' }); }), /entre 1 et 4 tuiles/);
+  assert.throws(bad(p => { p[0].rows[0].height = 'huge'; }), /Hauteur/);
+  assert.throws(bad(p => { p[0].rows[0].tiles[0].metric = 'secret'; }), /tuile invalides/);
+  assert.throws(bad(p => { p[1].id = p[0].id; }), /Identifiant/);
+  assert.throws(bad(p => { p[0].name = ' '; }), /nom/);
+  assert.throws(() => layout.validatePages([]), /entre 1 et 8 pages/);
+});
+
+test('v1 widget lists migrate into pages and keep their order', () => {
+  const old = model.defaults().widgets.map(w => ({ ...w }));
+  old.find(w => w.id === 'load').visible = false;
+  const restored = model.restore({ interval: 2, widgets: old });
+  const metrics = restored.pages.flatMap(p => p.rows.flatMap(r => r.tiles.map(t => t.metric)));
+  assert.deepEqual(metrics, old.filter(w => w.visible).map(w => w.id));
+  assert.equal(restored.pages[0].rows[0].tiles[0].display, 'chart');
+  assert.deepEqual(layout.validatePages(restored.pages), restored.pages);
+  const broken = model.restore({ widgets: old, pages: [{ id: 'x' }] });
+  assert.equal(broken.pages[0].name, 'Jeu');
+});
+
+test('every default page fits a landscape phone without scrolling', () => {
+  for (const page of model.defaults().pages) assert.ok(layout.pageHeight(page) <= layout.FIT.landscape, `${page.name}: ${layout.pageHeight(page)} pt`);
+});
+
+test('only metrics placed on a page are visible and can alert', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-pages-'));
+  const pages = [{ id: 'only', name: 'FPS', rows: [{ id: 'r1', height: 'l', tiles: [{ id: 't1', metric: 'fps', display: 'value', color: 'auto' }] }] }];
+  fs.writeFileSync(path.join(dir, 'settings.json'), JSON.stringify({ ...model.defaults(), pages }));
+  const app = activate({ dataDir: dir });
+  t.after(() => { app.close(); fs.rmSync(dir, { recursive: true, force: true }); });
+  const data = app.data();
+  assert.deepEqual(data.widgets.filter(w => w.visible).map(w => w.id), ['fps']);
+  assert.equal(data.pages.length, 1);
+  assert.equal(data.pageCount, 1);
 });
