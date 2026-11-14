@@ -4,6 +4,7 @@ const os = require('node:os');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
+const { t, VitalsError } = require('./i18n.cjs');
 
 function cpuSnapshot() {
   return os.cpus().map(c => ({ idle: c.times.idle, total: Object.values(c.times).reduce((a, b) => a + b, 0) }));
@@ -20,19 +21,19 @@ async function readSmall(file, limit = 65536) {
   try {
     const buffer = Buffer.alloc(limit + 1);
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    if (bytesRead > limit) throw new Error('Fichier de télémétrie trop volumineux.');
+    if (bytesRead > limit) throw new VitalsError('err.telemetryLarge');
     return buffer.toString('utf8', 0, bytesRead);
   } finally { await handle.close(); }
 }
 
 function telemetry(raw, now = Date.now()) {
-  if (!raw || typeof raw !== 'object' || !Number.isFinite(raw.timestamp) || now - raw.timestamp > 10000 || raw.timestamp > now + 2000) throw new Error('Télémétrie périmée : mise à jour attendue toutes les 10 secondes.');
+  if (!raw || typeof raw !== 'object' || !Number.isFinite(raw.timestamp) || now - raw.timestamp > 10000 || raw.timestamp > now + 2000) throw new VitalsError('err.telemetryStale');
   const result = {};
   for (const [key, max] of [['fps', 2000], ['gpu', 100], ['cpuTemp', 150], ['gpuTemp', 150]]) {
     const value = raw[key];
     if (value === undefined || value === null) continue;
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max) throw new Error(`Valeur de télémétrie invalide : ${key}.`);
-    result[key] = { value, source: 'Télémétrie locale', detail: key === 'fps' ? 'Mesure fournie par votre jeu ou votre outil de capture.' : 'Mesure fournie par votre outil de monitoring.' };
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max) throw new VitalsError('err.telemetryValue', { key });
+    result[key] = { value, source: t('src.telemetry'), detail: t(key === 'fps' ? 'det.telemetryFps' : 'det.telemetry') };
   }
   return result;
 }
@@ -42,7 +43,7 @@ function createSensors(dataDir) {
   let closed = false, nextNvidia = 0, nextWindows = 0;
   function run(file, args) {
     return new Promise((resolve, reject) => {
-      if (closed) return reject(new Error('Collecte arrêtée.'));
+      if (closed) return reject(new VitalsError('err.collectStopped'));
       const child = execFile(file, args, { timeout: 3500, maxBuffer: 128 * 1024, windowsHide: true, encoding: 'utf8' }, (error, stdout) => {
         children.delete(child);
         error ? reject(error) : resolve(stdout);
@@ -63,7 +64,7 @@ function createSensors(dataDir) {
     }
     const used = Math.max(0, total - available);
     const gb = n => (n / 1024 ** 3).toFixed(1);
-    return { value: total > 0 ? 100 * used / total : null, source: 'Système', detail: `${gb(used)} / ${gb(total)} Gio${process.platform === 'darwin' ? ' · cache inclus' : ''}` };
+    return { value: total > 0 ? 100 * used / total : null, source: t('src.system'), detail: t(process.platform === 'darwin' ? 'det.memoryCache' : 'det.memory', { used: gb(used), total: gb(total) }) };
   }
 
   async function disk() {
@@ -83,7 +84,7 @@ function createSensors(dataDir) {
       }
     }
     if (!(total > 0) || !Number.isFinite(free)) throw new Error('Espace disque inaccessible.');
-    return { value: Math.max(0, Math.min(100, 100 * (1 - free / total))), source: 'Volume système', detail: `${(free / 1024 ** 3).toFixed(1)} Gio disponibles / ${(total / 1024 ** 3).toFixed(0)} Gio` };
+    return { value: Math.max(0, Math.min(100, 100 * (1 - free / total))), source: t('src.volume'), detail: t('det.disk', { free: (free / 1024 ** 3).toFixed(1), total: (total / 1024 ** 3).toFixed(0) }) };
   }
 
   async function linuxTemperature() {
@@ -100,7 +101,7 @@ function createSensors(dataDir) {
         if (value > 0 && value <= 150) candidates.push(value);
       }
     }
-    return candidates.length ? { cpuTemp: { value: Math.max(...candidates), source: 'Capteurs Linux', detail: 'Température maximale des capteurs CPU.' } } : {};
+    return candidates.length ? { cpuTemp: { value: Math.max(...candidates), source: t('src.linuxSensors'), detail: t('det.cpuTempLinux') } } : {};
   }
 
   async function nvidia() {
@@ -109,8 +110,8 @@ function createSensors(dataDir) {
       const text = await run('nvidia-smi', ['--query-gpu=utilization.gpu,temperature.gpu', '--format=csv,noheader,nounits']);
       const [gpu, temp] = text.trim().split('\n')[0].split(',').map(v => /^\d+(\.\d+)?$/.test(v.trim()) ? Number(v) : null);
       const result = {};
-      if (gpu !== null && gpu >= 0 && gpu <= 100) result.gpu = { value: gpu, source: 'NVIDIA SMI', detail: 'Utilisation du premier GPU NVIDIA.' };
-      if (temp !== null && temp >= 0 && temp <= 150) result.gpuTemp = { value: temp, source: 'NVIDIA SMI', detail: 'Température du premier GPU NVIDIA.' };
+      if (gpu !== null && gpu >= 0 && gpu <= 100) result.gpu = { value: gpu, source: 'NVIDIA SMI', detail: t('det.nvidiaGpu') };
+      if (temp !== null && temp >= 0 && temp <= 150) result.gpuTemp = { value: temp, source: 'NVIDIA SMI', detail: t('det.nvidiaTemp') };
       return result;
     } catch { nextNvidia = Date.now() + 60000; return {}; }
   }
@@ -124,13 +125,13 @@ function createSensors(dataDir) {
       const raw = (await readSmall(path.join(device, 'gpu_busy_percent')).catch(() => '')).trim();
       const value = raw ? Number(raw) : NaN;
       if (!Number.isFinite(value) || value < 0 || value > 100) continue;
-      result.gpu = { value, source: 'GPU Linux', detail: 'Utilisation du premier GPU exposant gpu_busy_percent.' };
+      result.gpu = { value, source: t('src.linuxGpu'), detail: t('det.linuxGpu') };
       const hwmon = path.join(device, 'hwmon');
       for (const entry of await fs.readdir(hwmon).catch(() => [])) {
         const dir = path.join(hwmon, entry);
         if ((await readSmall(path.join(dir, 'name')).catch(() => '')).trim() !== 'amdgpu') continue;
         const temp = Number((await readSmall(path.join(dir, 'temp1_input')).catch(() => '')).trim()) / 1000;
-        if (temp > 0 && temp <= 150) result.gpuTemp = { value: temp, source: 'AMD Linux', detail: 'Température edge du premier GPU AMD disponible.' };
+        if (temp > 0 && temp <= 150) result.gpuTemp = { value: temp, source: 'AMD Linux', detail: t('det.amdTemp') };
       }
       break;
     }
@@ -153,7 +154,7 @@ function createSensors(dataDir) {
         if (sensor?.SensorType === 'Load' && /gpu/i.test(id) && /core/i.test(name)) key = 'gpu';
         const value = sensor?.Value;
         if (key && typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= (key === 'gpu' ? 100 : 150)) {
-          if (!result[key] || value > result[key].value) result[key] = { value, source: 'Libre Hardware Monitor', detail: 'Capteur matériel local (valeur maximale).' };
+          if (!result[key] || value > result[key].value) result[key] = { value, source: 'Libre Hardware Monitor', detail: t('det.lhm') };
         }
       }
       return result;
@@ -167,12 +168,12 @@ function createSensors(dataDir) {
       const readings = {};
       if (diskResult.status === 'fulfilled') readings.disk = diskResult.value;
       for (const r of [linux, gpu, windows, nv]) if (r.status === 'fulfilled') Object.assign(readings, r.value);
-      return { readings, error: diskResult.status === 'rejected' ? 'Le volume système est inaccessible. Les autres mesures restent disponibles.' : '' };
+      return { readings, error: diskResult.status === 'rejected' ? t('err.volume') : '' };
     },
     async external() {
       try { return { readings: telemetry(JSON.parse(await readSmall(path.join(dataDir, 'telemetry.json')))), error: '' }; }
       catch (e) {
-        return { readings: {}, error: e.code === 'ENOENT' ? '' : e instanceof SyntaxError ? 'Le fichier de télémétrie ne contient pas un JSON valide.' : e.code ? 'Le fichier de télémétrie est inaccessible.' : e.message };
+        return { readings: {}, error: e.code === 'ENOENT' ? '' : e instanceof SyntaxError ? t('err.telemetryJson') : e.code ? t('err.telemetryAccess') : e.message };
       }
     },
     close() { closed = true; for (const child of children) child.kill(); children.clear(); }

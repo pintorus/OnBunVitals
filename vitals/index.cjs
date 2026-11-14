@@ -5,14 +5,20 @@ const fs = require('node:fs');
 const path = require('node:path');
 const model = require('./lib/model.cjs');
 const layout = require('./lib/layout.cjs');
+const i18n = require('./lib/i18n.cjs');
+const { t, VitalsError } = i18n;
 const { createEditorServer } = require('./lib/editor-server.cjs');
 const { cpuSnapshot, cpuUsage, createSensors } = require('./lib/sensors.cjs');
 
 function activate(ctx) {
   const configPath = path.join(ctx.dataDir, 'settings.json');
-  let config = model.defaults(), configError = '';
-  try { config = model.restore(JSON.parse(fs.readFileSync(configPath, 'utf8'))); }
-  catch (e) { if (e.code !== 'ENOENT') configError = 'Réglages illisibles. Les valeurs par défaut sont actives ; votre fichier sera remplacé au prochain enregistrement.'; }
+  const locales = i18n.systemLocales(ctx.electron);
+  const applyLanguage = preference => i18n.setLanguage(i18n.resolve(preference, locales));
+  let raw, configError = '';
+  try { raw = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch (e) { if (e.code !== 'ENOENT') configError = 'err.settingsUnreadable'; }
+  // The language must be known before defaults are built, since default page names are translated.
+  applyLanguage(raw?.language);
+  let config = model.restore(raw);
   const sensors = createSensors(ctx.dataDir);
   let previous = cpuSnapshot(), readings = {}, slowReadings = {}, slowTime = 0;
   let histories = {}, cache, revision = 0, timer, slowTimer, closed = false, sampling = false, slowBusy = false;
@@ -21,9 +27,11 @@ function activate(ctx) {
   let editorWindow, editorUrl = '';
   const editor = createEditorServer({
     state: () => ({ revision: cache.revision, interval: config.interval, pages: config.pages, widgets: cache.widgets.map(({ history, ...w }) => w),
-      colors: model.colors, displays: layout.displays, heights: layout.heights, limits: layout.LIMITS, fit: layout.FIT, spacing: layout.SPACING }),
+      colors: model.colors, displays: layout.displays, heights: layout.heights, limits: layout.LIMITS, fit: layout.FIT, spacing: layout.SPACING,
+      language: config.language, lang: i18n.language(), languages: i18n.languageOptions(), t: i18n.table('ed'), colorNames: i18n.table('color') }),
+    language(value) { setLanguage(value); save(config); },
     save(value) {
-      if (!value || typeof value !== 'object') throw new Error('Mise en page invalide.');
+      if (!value || typeof value !== 'object') throw new VitalsError('err.layout');
       const pages = layout.validatePages(value.pages);
       const widgets = Array.isArray(value.widgets) ? config.widgets.map(w => { const next = value.widgets.find(n => n?.id === w.id); return next ? model.validateWidget({ ...w, ...next, id: w.id }) : w; }) : config.widgets;
       save({ ...config, version: 2, pages, widgets });
@@ -35,14 +43,14 @@ function activate(ctx) {
     const electron = ctx.electron;
     if (electron?.BrowserWindow) {
       if (editorWindow && !editorWindow.isDestroyed()) { editorWindow.show(); editorWindow.focus(); return; }
-      editorWindow = new electron.BrowserWindow({ width: 1280, height: 820, minWidth: 960, minHeight: 640, title: 'Vitals · Éditeur de pages', backgroundColor: '#0C1118', autoHideMenuBar: true,
+      editorWindow = new electron.BrowserWindow({ width: 1280, height: 820, minWidth: 960, minHeight: 640, title: t('ed.title'), backgroundColor: '#0C1118', autoHideMenuBar: true,
         webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
       // Links leave the editor for the real browser; the editor itself never navigates away.
       editorWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
       editorWindow.webContents.on('will-navigate', e => e.preventDefault());
       await editorWindow.loadURL(editorUrl);
     } else if (electron?.shell?.openExternal) await electron.shell.openExternal(editorUrl);
-    else throw new Error(`Ouvrez l’éditeur dans votre navigateur : ${editorUrl}`);
+    else throw new VitalsError('err.openBrowser', { url: editorUrl });
   }
 
   function rebuild() {
@@ -51,22 +59,23 @@ function activate(ctx) {
     const widgets = model.view(config, readings, histories).map(w => ({ ...w, visible: onPage.has(w.id) }));
     const alerts = widgets.filter(w => w.visible && ['warning', 'critical'].includes(w.status));
     cache = {
-      revision: ++revision, loading: !started, refreshing, error: [configError, error, telemetryError].filter(Boolean).join(' '),
-      host: os.hostname(), system: `${{ win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform] || os.type()} · ${os.cpus().length} cœurs logiques`,
-      cpuModel: os.cpus()[0]?.model || 'Processeur', uptime: Math.floor(os.uptime()), sampledAt,
+      revision: ++revision, loading: !started, refreshing, error: [configError && t(configError), error, telemetryError].filter(Boolean).join(' '),
+      host: os.hostname(), system: t('sys.cores', { os: { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform] || os.type(), cores: os.cpus().length }),
+      cpuModel: os.cpus()[0]?.model || t('metric.cpu'), uptime: Math.floor(os.uptime()), sampledAt,
       interval: config.interval, notifications: config.notifications, widgets, alerts,
       pages: layout.view(config.pages, widgets), pageCount: config.pages.length, editorUrl,
       visibleCount: widgets.filter(w => w.visible).length,
-      status: alerts.length ? `${alerts.length} seuil${alerts.length > 1 ? 's' : ''} dépassé${alerts.length > 1 ? 's' : ''}` : 'Tout est sous contrôle',
+      status: alerts.length === 1 ? t('sys.alertsOne') : alerts.length ? t('sys.alertsMany', { count: alerts.length }) : t('sys.ok'),
       statusTint: alerts.some(w => w.status === 'critical') ? 'red' : alerts.length ? 'orange' : 'mint',
       availableCount: widgets.filter(w => w.available).length,
-      historyLabel: 'Dernière minute · mesures locales',
-      telemetryConnected: Object.values(readings).some(r => r.source === 'Télémétrie locale')
+      historyLabel: t('sys.history'), intervalText: t('ui.everySeconds', { s: config.interval }), availableText: t('sys.available', { count: widgets.filter(w => w.available).length, total: widgets.length }),
+      t: i18n.table('ui'), colorNames: i18n.table('color'), language: config.language, languages: i18n.languageOptions(),
+      telemetryConnected: Object.values(readings).some(r => r.source === t('src.telemetry'))
     };
     if (!closed) for (const w of widgets) {
       const prior = alarmStates.get(w.id);
       if (config.notifications && w.visible && w.status === 'critical' && prior !== 'critical' && Date.now() - (notifiedAt.get(w.id) || 0) > 60000) {
-        try { ctx.notifications?.post({ id: `vitals-${w.id}`, title: `${w.name} : seuil critique`, body: `${w.display} · ${w.thresholdText}` }); notifiedAt.set(w.id, Date.now()); } catch {}
+        try { ctx.notifications?.post({ id: `vitals-${w.id}`, title: t('sys.criticalTitle', { name: w.name }), body: `${w.display} · ${w.thresholdText}` }); notifiedAt.set(w.id, Date.now()); } catch {}
       }
       alarmStates.set(w.id, w.status);
     }
@@ -83,16 +92,16 @@ function activate(ctx) {
       const now = Date.now();
       const old = now - slowTime > 15000;
       readings = { ...(old ? {} : slowReadings), ...external.readings,
-        cpu: { value: cpu, source: 'Système', detail: `${os.cpus().length} cœurs logiques · utilisation totale` }, memory };
-      if (process.platform !== 'win32') readings.load = { value: os.loadavg()[0] / Math.max(1, os.cpus().length) * 100, source: 'Système', detail: 'Charge moyenne 1 min / cœurs · peut dépasser 100 %.' };
+        cpu: { value: cpu, source: t('src.system'), detail: t('det.cpu', { cores: os.cpus().length }) }, memory };
+      if (process.platform !== 'win32') readings.load = { value: os.loadavg()[0] / Math.max(1, os.cpus().length) * 100, source: t('src.system'), detail: t('det.load') };
       for (const d of model.definitions) {
-        if (!readings[d.id]) readings[d.id] = { value: null, source: '', detail: d.id === 'fps' ? 'Connectez votre outil de capture dans Réglages → Capteurs.' : d.id === 'load' ? 'La charge moyenne Unix n’est pas disponible sur Windows.' : 'Non exposé par ce matériel. Voir Réglages → Capteurs.' };
+        if (!readings[d.id]) readings[d.id] = { value: null, source: '', detail: t(d.id === 'fps' ? 'det.fpsMissing' : d.id === 'load' ? 'det.loadWindows' : 'det.missing') };
         const history = (histories[d.id] || []).filter(p => p.x >= now / 1000 - 60);
         // Split on missing readings rather than drawing a line across a sensor outage.
         histories[d.id] = Number.isFinite(readings[d.id].value) ? [...history, { x: now / 1000, y: readings[d.id].value }].slice(-120) : [];
       }
       telemetryError = external.error; sampledAt = now; started = true;
-    } catch { error = 'La collecte a échoué. Nouvelle tentative automatique au prochain relevé.'; readings = {}; histories = {}; }
+    } catch { error = t('err.sampleFailed'); readings = {}; histories = {}; }
     finally { sampling = false; if (!closed) { rebuild(); timer = setTimeout(sample, config.interval * 1000); timer.unref?.(); } }
   }
 
@@ -103,7 +112,7 @@ function activate(ctx) {
       const result = await sensors.slow();
       if (closed) return;
       slowReadings = result.readings; slowTime = Date.now(); error = result.error;
-    } catch { if (!closed) error = 'Les capteurs matériels ne répondent pas. Nouvelle tentative automatique.'; }
+    } catch { if (!closed) error = t('err.hardware'); }
     finally { slowBusy = false; refreshing = false; if (!closed) { rebuild(); slowTimer = setTimeout(slowSample, 5000); slowTimer.unref?.(); } }
   }
 
@@ -112,8 +121,14 @@ function activate(ctx) {
       fs.mkdirSync(ctx.dataDir, { recursive: true });
       fs.writeFileSync(configPath + '.tmp', JSON.stringify(next, null, 2), { mode: 0o600 });
       fs.renameSync(configPath + '.tmp', configPath);
-    } catch { throw new Error('Impossible d’enregistrer les réglages sur cet ordinateur.'); }
+    } catch { throw new VitalsError('err.save'); }
     config = next; configError = ''; rebuild();
+  }
+
+  function setLanguage(value) {
+    if (value !== 'auto' && !i18n.LANGS.includes(value)) throw new VitalsError('err.language');
+    config = { ...config, language: value };
+    applyLanguage(value);
   }
 
   rebuild();
@@ -122,49 +137,52 @@ function activate(ctx) {
   return {
     data() { return cache; },
     command(action, value) {
-      if (closed) throw new Error('Vitals est fermé. Rouvrez l’app.');
+      if (closed) throw new VitalsError('err.closed');
       if (action === 'saveWidget') {
         const widget = model.validateWidget(value);
         save({ ...config, widgets: config.widgets.map(w => w.id === widget.id ? widget : w) });
       } else if (action === 'move') {
-        if (!value || ![-1, 1].includes(value.direction)) throw new Error('Déplacement invalide.');
+        if (!value || ![-1, 1].includes(value.direction)) throw new VitalsError('err.move');
         const widgets = [...config.widgets], index = widgets.findIndex(w => w.id === value.id);
-        if (index < 0) throw new Error('Widget introuvable.');
+        if (index < 0) throw new VitalsError('err.widgetMissing');
         const target = index + value.direction;
         if (target >= 0 && target < widgets.length) { [widgets[index], widgets[target]] = [widgets[target], widgets[index]]; save({ ...config, widgets }); }
       } else if (action === 'interval') {
-        if (![1, 2, 5].includes(value)) throw new Error('Choisissez une cadence de 1, 2 ou 5 secondes.');
+        if (![1, 2, 5].includes(value)) throw new VitalsError('err.interval');
         save({ ...config, interval: value });
         clearTimeout(timer); if (!sampling) void sample();
       } else if (action === 'notifications') {
-        if (typeof value !== 'boolean') throw new Error('Choisissez d’activer ou de désactiver les alertes.');
+        if (typeof value !== 'boolean') throw new VitalsError('err.notifications');
         save({ ...config, notifications: value });
+      } else if (action === 'language') {
+        setLanguage(value);
+        save(config);
       } else if (action === 'openEditor') {
-        openEditor().catch(e => { ctx.log?.error?.('Vitals editor', e); });
+        openEditor().catch(e => { ctx.log?.warn?.('Page editor:', e.message); });
         return { opened: true };
       } else if (action === 'refresh') {
         clearTimeout(slowTimer); if (!slowBusy) void slowSample();
         clearTimeout(timer); if (!sampling) void sample();
-      } else throw new Error('Commande inconnue.');
+      } else throw new VitalsError('err.unknown');
       return { saved: true };
     },
     island() {
       const cpu = cache.widgets.find(w => w.id === 'cpu');
       return { priority: cache.alerts.length ? 12 : 1,
         compact: { title: cache.alerts.length ? cache.status : `CPU ${cpu.display}`, accent: cache.alerts.length ? '#FF9F0A' : '#63E6BE' },
-        expanded: { title: 'Vitals', subtitle: `${cpu.display} CPU · ${cache.widgets.find(w => w.id === 'memory').display} RAM`, footer: { label: 'Ouvrir l’éditeur de pages', action: 'openEditor', note: cache.status } } };
+        expanded: { title: 'Vitals', subtitle: `${cpu.display} CPU · ${cache.widgets.find(w => w.id === 'memory').display} RAM`, footer: { label: t('island.openEditor'), action: 'openEditor', note: cache.status } } };
     },
     settings: {
       describe() { return { status: { label: cache.status, tone: cache.alerts.length ? 'warning' : 'success' }, items: [
-        { type: 'text', text: 'Composez vos pages de tuiles dans l’éditeur PC : depuis l’îlot (Vitals → Éditeur) ou le bouton Éditeur du téléphone.' },
-        ...(editorUrl ? [{ type: 'text', text: `Éditeur ouvert sur ${editorUrl.split('#')[0]}` }] : []),
-        { type: 'note', text: 'CPU et mémoire : système. GPU NVIDIA : nvidia-smi. Windows : Libre Hardware Monitor (WMI). Linux : hwmon CPU et GPU compatibles. Autres GPU et FPS : télémétrie locale.' },
-        { type: 'text', text: `Fichier de télémétrie : ${path.join(ctx.dataDir, 'telemetry.json')}` },
-        { type: 'note', text: 'JSON : timestamp (millisecondes Unix), fps, gpu (%), cpuTemp et gpuTemp (°C). Écrivez atomiquement toutes les 1 à 5 s ; les valeurs expirent après 10 s.' },
-        { type: 'toggle', label: 'Alertes critiques', value: config.notifications, action: 'notifications' }
+        { type: 'text', text: t('pc.intro') },
+        ...(editorUrl ? [{ type: 'text', text: t('pc.editorAt', { url: editorUrl.split('#')[0] }) }] : []),
+        { type: 'note', text: t('pc.sources') },
+        { type: 'text', text: t('pc.telemetryFile', { path: path.join(ctx.dataDir, 'telemetry.json') }) },
+        { type: 'note', text: t('pc.telemetryFormat') },
+        { type: 'toggle', label: t('pc.alerts'), value: config.notifications, action: 'notifications' }
       ] }; },
       action(action, values) {
-        if (action !== 'notifications' || typeof values?.on !== 'boolean') throw new Error('Réglage invalide.');
+        if (action !== 'notifications' || typeof values?.on !== 'boolean') throw new VitalsError('err.setting');
         save({ ...config, notifications: values.on });
         return { saved: true };
       }

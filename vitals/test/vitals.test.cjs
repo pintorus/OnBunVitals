@@ -7,7 +7,13 @@ const os = require('node:os');
 const path = require('node:path');
 const model = require('../lib/model.cjs');
 const { cpuUsage, telemetry, createSensors } = require('../lib/sensors.cjs');
-const { activate } = require('../index.cjs');
+const { activate: start } = require('../index.cjs');
+const i18n = require('../lib/i18n.cjs');
+
+// The app follows the computer's language; tests pin French unless they say otherwise.
+const french = { app: { getPreferredSystemLanguages: () => ['fr-FR'] } };
+const activate = ctx => start({ electron: french, ...ctx });
+i18n.setLanguage('fr');
 
 test('CPU deltas distinguish idle, busy, hotplug and unchanged counters', () => {
   assert.equal(cpuUsage([{ idle: 100, total: 200 }], [{ idle: 150, total: 300 }]), 50);
@@ -178,4 +184,35 @@ test('only metrics placed on a page are visible and can alert', async t => {
   assert.deepEqual(data.widgets.filter(w => w.visible).map(w => w.id), ['fps']);
   assert.equal(data.pages.length, 1);
   assert.equal(data.pageCount, 1);
+});
+
+test('every language translates every key with the same placeholders', () => {
+  const keys = Object.keys(i18n.STRINGS);
+  for (const lang of i18n.LANGS) for (const key of keys) {
+    const text = i18n.t(key, null, lang);
+    assert.ok(text && text !== key, `${lang} ${key}`);
+    const names = s => [...s.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort().join();
+    assert.equal(names(text), names(i18n.t(key, null, 'en')), `${lang} ${key} placeholders`);
+  }
+  assert.deepEqual(Object.keys(i18n.EXTRA.zh).sort(), keys.slice().sort());
+  assert.deepEqual(Object.keys(i18n.EXTRA.ja).sort(), keys.slice().sort());
+});
+
+test('language follows the system, falls back to English and can be chosen', async t => {
+  assert.equal(i18n.resolve('auto', ['de-AT', 'en-US']), 'de');
+  assert.equal(i18n.resolve('auto', ['zh-Hans-CN']), 'zh');
+  assert.equal(i18n.resolve('auto', ['pt-BR']), 'en');
+  assert.equal(i18n.resolve('ja', ['fr-FR']), 'ja');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-lang-'));
+  const app = start({ dataDir: dir, electron: { app: { getPreferredSystemLanguages: () => ['ja-JP'] } } });
+  t.after(() => { app.close(); i18n.setLanguage('fr'); fs.rmSync(dir, { recursive: true, force: true }); });
+  assert.equal(app.data().widgets[0].name, 'プロセッサ');
+  assert.equal(app.data().pages[0].name, 'ゲーム');
+  assert.equal(app.data().t.save, '保存');
+  app.command('language', 'en');
+  assert.equal(app.data().widgets[0].name, 'Processor');
+  assert.equal(app.data().language, 'en');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'))).language, 'en');
+  assert.throws(() => app.command('interval', 0), /Choose an interval/);
+  assert.throws(() => app.command('language', 'xx'), /Unsupported language/);
 });

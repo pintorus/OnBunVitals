@@ -7,11 +7,12 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { t } = require('./i18n.cjs');
 
 const EDITOR_DIR = path.join(__dirname, '..', 'editor');
 const files = { '/': ['index.html', 'text/html; charset=utf-8'], '/editor.js': ['editor.js', 'text/javascript; charset=utf-8'], '/editor.css': ['editor.css', 'text/css; charset=utf-8'] };
 
-function createEditorServer({ state, save }) {
+function createEditorServer({ state, save, language }) {
   const token = crypto.randomBytes(24).toString('hex');
   let server, ready;
 
@@ -24,26 +25,27 @@ function createEditorServer({ state, save }) {
   function handle(req, res) {
     const url = new URL(req.url, 'http://127.0.0.1');
     // Reject DNS-rebinding: only our own loopback host may talk to us.
-    if (!/^(127\.0\.0\.1|localhost):\d+$/.test(req.headers.host || '')) return send(res, 403, { error: 'Hôte refusé.' });
+    if (!/^(127\.0\.0\.1|localhost):\d+$/.test(req.headers.host || '')) return send(res, 403, { error: t('err.host') });
     if (req.method === 'GET' && files[url.pathname]) {
       const [file, type] = files[url.pathname];
-      return fs.readFile(path.join(EDITOR_DIR, file), (err, data) => err ? send(res, 500, { error: 'Fichier de l’éditeur manquant.' }) : send(res, 200, data, type));
+      return fs.readFile(path.join(EDITOR_DIR, file), (err, data) => err ? send(res, 500, { error: t('err.editorFile') }) : send(res, 200, data, type));
     }
-    if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: 'Introuvable.' });
+    if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: t('err.notFound') });
     const given = Buffer.from(String(req.headers['x-vitals-token'] || ''));
-    if (given.length !== token.length || !crypto.timingSafeEqual(given, Buffer.from(token))) return send(res, 401, { error: 'Jeton invalide. Rouvrez l’éditeur depuis Vitals.' });
+    if (given.length !== token.length || !crypto.timingSafeEqual(given, Buffer.from(token))) return send(res, 401, { error: t('err.token') });
     if (req.method === 'GET' && url.pathname === '/api/state') return send(res, 200, state());
-    if (req.method === 'PUT' && url.pathname === '/api/layout') {
+    const writer = { '/api/layout': save, '/api/language': value => language(value?.language) }[url.pathname];
+    if (req.method === 'PUT' && writer) {
       let body = '';
       req.setEncoding('utf8');
       req.on('data', chunk => { body += chunk; if (body.length > 256 * 1024) req.destroy(); });
       req.on('end', () => {
-        try { save(JSON.parse(body)); send(res, 200, state()); }
-        catch (e) { send(res, 400, { error: e instanceof SyntaxError ? 'Requête illisible.' : e.message }); }
+        try { writer(JSON.parse(body)); send(res, 200, state()); }
+        catch (e) { send(res, 400, { error: e instanceof SyntaxError ? t('err.request') : e.message }); }
       });
       return;
     }
-    send(res, 404, { error: 'Introuvable.' });
+    send(res, 404, { error: t('err.notFound') });
   }
 
   return {

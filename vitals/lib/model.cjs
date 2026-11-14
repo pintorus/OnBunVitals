@@ -1,27 +1,29 @@
 'use strict';
 
+const { t, VitalsError } = require('./i18n.cjs');
+
 const definitions = [
-  { id: 'cpu', name: 'Processeur', symbol: 'cpu', unit: '%', max: 100, warning: 75, critical: 90, color: 'mint', size: 'large' },
-  { id: 'memory', name: 'Mémoire', symbol: 'memorychip', unit: '%', max: 100, warning: 80, critical: 95, color: 'cyan' },
-  { id: 'disk', name: 'Disque système', symbol: 'internaldrive', unit: '%', max: 100, warning: 80, critical: 95, color: 'indigo' },
-  { id: 'gpu', name: 'Carte graphique', symbol: 'display', unit: '%', max: 100, warning: 85, critical: 95, color: 'purple' },
-  { id: 'cpuTemp', name: 'Température CPU', symbol: 'thermometer', unit: '°C', max: 120, warning: 80, critical: 95, color: 'orange' },
-  { id: 'gpuTemp', name: 'Température GPU', symbol: 'thermometer', unit: '°C', max: 120, warning: 80, critical: 90, color: 'pink' },
-  { id: 'fps', name: 'Images par seconde', symbol: 'gamecontroller', unit: 'FPS', max: 360, warning: 50, critical: 30, low: true, color: 'green' },
-  { id: 'load', name: 'Charge système', symbol: 'chart.bar', unit: '%', max: 200, warning: 100, critical: 150, color: 'teal', visible: process.platform !== 'win32' }
+  { id: 'cpu', symbol: 'cpu', unit: '%', max: 100, warning: 75, critical: 90, color: 'mint', size: 'large' },
+  { id: 'memory', symbol: 'memorychip', unit: '%', max: 100, warning: 80, critical: 95, color: 'cyan' },
+  { id: 'disk', symbol: 'internaldrive', unit: '%', max: 100, warning: 80, critical: 95, color: 'indigo' },
+  { id: 'gpu', symbol: 'display', unit: '%', max: 100, warning: 85, critical: 95, color: 'purple' },
+  { id: 'cpuTemp', symbol: 'thermometer', unit: '°C', max: 120, warning: 80, critical: 95, color: 'orange' },
+  { id: 'gpuTemp', symbol: 'thermometer', unit: '°C', max: 120, warning: 80, critical: 90, color: 'pink' },
+  { id: 'fps', symbol: 'gamecontroller', unit: 'FPS', max: 360, warning: 50, critical: 30, low: true, color: 'green' },
+  { id: 'load', symbol: 'chart.bar', unit: '%', max: 200, warning: 100, critical: 150, color: 'teal', visible: process.platform !== 'win32' }
 ];
 const colors = ['mint', 'cyan', 'teal', 'blue', 'indigo', 'purple', 'pink', 'green', 'orange', 'yellow', 'white'];
 const defaultWidgets = () => definitions.map(d => ({ id: d.id, visible: d.visible !== false, size: d.size || 'medium', color: d.color, warning: d.warning, critical: d.critical }));
 // The layout module needs `definitions`, so it is loaded lazily to avoid a require cycle.
 const layout = () => require('./layout.cjs');
-const defaults = () => ({ version: 2, interval: 2, notifications: false, widgets: defaultWidgets(), pages: layout().defaultPages() });
+const defaults = () => ({ version: 2, language: 'auto', interval: 2, notifications: false, widgets: defaultWidgets(), pages: layout().defaultPages() });
 
 function validateWidget(value) {
   const d = definitions.find(d => d.id === value?.id);
-  if (!d || typeof value.visible !== 'boolean' || !['small', 'medium', 'large'].includes(value.size) || !colors.includes(value.color)) throw new Error('Réglages du widget invalides.');
+  if (!d || typeof value.visible !== 'boolean' || !['small', 'medium', 'large'].includes(value.size) || !colors.includes(value.color)) throw new VitalsError('err.widget');
   const { warning, critical } = value;
   if (![warning, critical].every(n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= d.max) || (d.low ? critical >= warning : critical <= warning)) {
-    throw new Error(d.low ? 'Le seuil critique doit être inférieur au seuil de vigilance.' : 'Le seuil critique doit être supérieur au seuil de vigilance.');
+    throw new VitalsError(d.low ? 'err.criticalLow' : 'err.criticalHigh');
   }
   return { id: d.id, visible: value.visible, size: value.size, color: value.color, warning, critical };
 }
@@ -31,6 +33,7 @@ function restore(raw) {
   if (!raw || typeof raw !== 'object') return config;
   if ([1, 2, 5].includes(raw.interval)) config.interval = raw.interval;
   if (typeof raw.notifications === 'boolean') config.notifications = raw.notifications;
+  if (raw.language === 'auto' || require('./i18n.cjs').LANGS.includes(raw.language)) config.language = raw.language;
   if (Array.isArray(raw.widgets)) {
     const found = new Map();
     for (const w of raw.widgets) { try { if (!found.has(w.id)) found.set(w.id, validateWidget(w)); } catch {} }
@@ -51,15 +54,15 @@ function severity(value, widget, definition) {
 function view(config, readings, histories) {
   return config.widgets.map(w => {
     const d = definitions.find(d => d.id === w.id);
-    const r = readings[w.id] || { value: null, detail: 'Capteur non disponible.', source: '' };
+    const r = readings[w.id] || { value: null, detail: t('det.unavailable'), source: '' };
     const value = Number.isFinite(r.value) ? r.value : null;
     const status = severity(value, w, d);
-    return { ...d, ...w, value, available: value !== null, display: value === null ? '—' : `${Math.round(value)} ${d.unit}`, detail: r.detail, source: r.source,
-      status, statusLabel: { unavailable: 'Indisponible', normal: 'Normal', warning: 'Vigilance', critical: 'Critique' }[status],
+    return { ...d, ...w, name: t(`metric.${d.id}`), value, available: value !== null, display: value === null ? '—' : `${Math.round(value)} ${d.unit}`, detail: r.detail, source: r.source,
+      status, statusLabel: t(`status.${status}`),
       tint: status === 'critical' ? 'red' : status === 'warning' ? 'orange' : w.color,
       height: { small: 128, medium: 238, large: 310 }[w.size],
       history: histories[w.id] || [], low: !!d.low,
-      thresholdText: `${d.low ? 'Sous' : 'Dès'} ${w.warning} ${d.unit} · critique ${w.critical} ${d.unit}`
+      thresholdText: t(d.low ? 'threshold.low' : 'threshold.high', { warning: w.warning, critical: w.critical, unit: d.unit })
     };
   });
 }

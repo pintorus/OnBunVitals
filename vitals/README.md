@@ -10,7 +10,7 @@ A native system-monitoring dashboard for [Onbun](https://mathieudvv.github.io/Wi
 - CPU usage, memory, system-disk space, GPU usage, CPU/GPU temperatures, FPS and system load, when supported by your hardware or a local telemetry source.
 - Optional Onbun critical notifications, settings saved on your computer, no npm dependencies, account or remote service.
 
-The app interface is currently in French. This README and the documentation are in English.
+**Languages:** French, English, Spanish, German, Simplified Chinese and Japanese. Vitals follows your computer's language (English when it is not one of these), and you can pick another in the phone settings (**Language**) or in the editor's top bar. This README and the documentation are in English.
 
 ## Install
 

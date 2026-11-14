@@ -2,7 +2,7 @@
   "id": "vitals",
   "name": "Vitals",
   "shortName": "Vitals",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Un affichage tête haute pour gamers : les constantes de votre PC en pages de tuiles sur le téléphone, composées dans un éditeur sur l’ordinateur.",
   "entry": "index.cjs",
   "ui": "kit",

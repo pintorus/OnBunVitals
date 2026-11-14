@@ -33,6 +33,12 @@ The editor is served by the app on `127.0.0.1` only, on a random port, and every
 
 On the phone, the settings sheet still edits each metric's thresholds and color.
 
+### Languages
+
+Vitals speaks French, English, Spanish, German, Simplified Chinese and Japanese: the phone screen, the PC editor, the island card, the PC settings page, notifications and error messages. By default it follows the computer's language (Electron's preferred system languages, then the system locale); any other language falls back to English. **Réglages → Langue** on the phone and the language menu in the editor override it, and the choice is saved in `settings.json` as `language` (`auto`, `fr`, `en`, `es`, `de`, `zh` or `ja`). Page names are yours and are not translated; default pages are named in the language active when they are created.
+
+Translations live in `lib/i18n.cjs` (French, English, Spanish and German side by side for each key) and `lib/locales/zh.cjs`, `lib/locales/ja.cjs`. A test fails if any language misses a key or a placeholder. To add a language, add a locale file with every key and register it in `LANGS`.
+
 ### Upgrading from 1.0
 
 Version 1.0 settings listed widgets instead of pages. On first launch, visible widgets are converted into pages in their saved order: large widgets become a chart row, and medium or small widgets are grouped into rows of up to two or four, with three rows per page.
@@ -148,7 +154,7 @@ Private runtime files are separate:
 
 | File | Purpose |
 | --- | --- |
-| `ctx.dataDir/settings.json` | Pages, rows and tiles, metric colors and thresholds, sampling interval and notification preference. |
+| `ctx.dataDir/settings.json` | Language, pages, rows and tiles, metric colors and thresholds, sampling interval and notification preference. |
 | `ctx.dataDir/settings.json.tmp` | Temporary file used for atomic preference writes. |
 | `ctx.dataDir/telemetry.json` | Optional payload written by your external telemetry publisher. |
 
@@ -191,6 +197,7 @@ Pages are saved by the PC editor through `PUT /api/layout` (`{pages, widgets}`),
 | `interval` | Number `1`, `2` or `5` (seconds). |
 | `notifications` | Boolean. |
 | `refresh` | No value required; requests background collection. |
+| `language` | `auto` or a language code: `fr`, `en`, `es`, `de`, `zh`, `ja`. |
 | `openEditor` | No value required; opens the PC page editor and returns `{ "opened": true }`. |
 
 Successful commands return `{ "saved": true }`; refresh returns before collection completes. Invalid commands or settings throw readable errors for Onbun to display.

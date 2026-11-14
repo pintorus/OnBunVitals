@@ -5,6 +5,7 @@
 // (grid with a fixed column count per row), so the PC editor offers nothing more.
 
 const { definitions, colors } = require('./model.cjs');
+const { t, VitalsError } = require('./i18n.cjs');
 
 const LIMITS = { pages: 8, rows: 4, tiles: 4, name: 24 };
 // Row heights in points, and the room a page has under the floating bar on a typical
@@ -24,11 +25,11 @@ function row(height, tiles) { return { id: newId('r'), height, tiles }; }
 // A HUD for gaming first, the full system second.
 function defaultPages() {
   return [
-    { id: 'hud', name: 'Jeu', rows: [
+    { id: 'hud', name: t('sys.pageGame'), rows: [
       row('l', [tile('fps', 'value'), tile('cpu', 'gauge'), tile('gpu', 'gauge')]),
       row('s', [tile('cpuTemp', 'value'), tile('gpuTemp', 'value'), tile('memory', 'bar')])
     ] },
-    { id: 'system', name: 'Système', rows: [
+    { id: 'system', name: t('sys.pageSystem'), rows: [
       row('m', [tile('cpu', 'chart'), tile('memory', 'chart')]),
       row('m', [tile('disk', 'bar'), tile('load', 'value'), tile('gpu', 'chart')])
     ] }
@@ -47,26 +48,26 @@ function fromWidgets(widgets) {
   }
   flush();
   const pages = [];
-  for (let i = 0; i < rows.length; i += 3) pages.push({ id: newId('p'), name: pages.length ? `Page ${pages.length + 1}` : 'Principal', rows: rows.slice(i, i + 3) });
+  for (let i = 0; i < rows.length; i += 3) pages.push({ id: newId('p'), name: pages.length ? t('sys.page', { n: pages.length + 1 }) : t('sys.defaultPage'), rows: rows.slice(i, i + 3) });
   return pages.slice(0, LIMITS.pages).length ? pages.slice(0, LIMITS.pages) : defaultPages();
 }
 
 const validId = v => typeof v === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(v);
 
 function validatePages(pages) {
-  const fail = message => { throw new Error(message); };
-  if (!Array.isArray(pages) || pages.length < 1 || pages.length > LIMITS.pages) fail(`Il faut entre 1 et ${LIMITS.pages} pages.`);
+  const fail = (key, params) => { throw new VitalsError(key, params); };
+  if (!Array.isArray(pages) || pages.length < 1 || pages.length > LIMITS.pages) fail('err.pages', { max: LIMITS.pages });
   const seen = new Set();
-  const unique = id => { if (!validId(id) || seen.has(id)) fail('Identifiant de page, de rangée ou de tuile invalide.'); seen.add(id); return id; };
+  const unique = id => { if (!validId(id) || seen.has(id)) fail('err.id'); seen.add(id); return id; };
   return pages.map(p => {
     const name = typeof p?.name === 'string' ? p.name.trim() : '';
-    if (!name || name.length > LIMITS.name) fail(`Chaque page a un nom de 1 à ${LIMITS.name} caractères.`);
-    if (!Array.isArray(p.rows) || p.rows.length < 1 || p.rows.length > LIMITS.rows) fail(`La page « ${name} » doit avoir entre 1 et ${LIMITS.rows} rangées.`);
+    if (!name || name.length > LIMITS.name) fail('err.pageName', { max: LIMITS.name });
+    if (!Array.isArray(p.rows) || p.rows.length < 1 || p.rows.length > LIMITS.rows) fail('err.rows', { name, max: LIMITS.rows });
     return { id: unique(p.id), name, rows: p.rows.map(r => {
-      if (!Object.hasOwn(heights, r?.height)) fail('Hauteur de rangée invalide.');
-      if (!Array.isArray(r.tiles) || r.tiles.length < 1 || r.tiles.length > LIMITS.tiles) fail(`Chaque rangée contient entre 1 et ${LIMITS.tiles} tuiles.`);
+      if (!Object.hasOwn(heights, r?.height)) fail('err.rowHeight');
+      if (!Array.isArray(r.tiles) || r.tiles.length < 1 || r.tiles.length > LIMITS.tiles) fail('err.tiles', { max: LIMITS.tiles });
       return { id: unique(r.id), height: r.height, tiles: r.tiles.map(t => {
-        if (!metricIds.includes(t?.metric) || !displays.includes(t.display) || !(t.color === 'auto' || colors.includes(t.color))) fail('Réglages de tuile invalides.');
+        if (!metricIds.includes(t?.metric) || !displays.includes(t.display) || !(t.color === 'auto' || colors.includes(t.color))) fail('err.tile');
         return { id: unique(t.id), metric: t.metric, display: t.display, color: t.color };
       }) };
     }) };

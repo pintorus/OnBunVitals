@@ -19,7 +19,8 @@
     "editorUnit": "%",
     "pendingInterval": null,
     "pendingNotifications": null,
-    "page": 0
+    "page": 0,
+    "pendingLanguage": null
   },
   "let": {
     "editing": {
@@ -63,7 +64,7 @@
         "type": "button",
         "symbol": "arrow.clockwise",
         "variant": "glass",
-        "accessibility": "Actualiser les capteurs",
+        "accessibility": "$t.refresh",
         "action": {
           "command": "refresh",
           "value": null
@@ -74,7 +75,7 @@
         "type": "button",
         "symbol": "square.grid.2x2",
         "variant": "glass",
-        "accessibility": "Ouvrir l’éditeur de pages sur l’ordinateur",
+        "accessibility": "$t.openEditor",
         "action": {
           "command": "openEditor",
           "value": null
@@ -84,7 +85,7 @@
         "type": "button",
         "symbol": "slider.horizontal.3",
         "variant": "glass",
-        "accessibility": "Ouvrir l’éditeur et les réglages",
+        "accessibility": "$t.openSettings",
         "action": {
           "sheet": "settings"
         }
@@ -116,7 +117,7 @@
           "children": [
             {
               "type": "progress",
-              "label": "Lecture des constantes…",
+              "label": "$t.loading",
               "tint": "mint",
               "when": "$loading"
             },
@@ -260,7 +261,7 @@
   },
   "sheets": {
     "editor": {
-      "title": "Modifier le widget",
+      "title": "$t.editMetric",
       "detents": [
         "large"
       ],
@@ -268,7 +269,7 @@
         "trailing": [
           {
             "type": "button",
-            "label": "Enregistrer",
+            "label": "$t.save",
             "action": [
               {
                 "command": "saveWidget",
@@ -301,7 +302,7 @@
             "children": [
               {
                 "type": "stat",
-                "label": "Mesure actuelle",
+                "label": "$t.current",
                 "value": "$editing.display",
                 "symbol": "$editing.symbol"
               },
@@ -315,51 +316,51 @@
           },
           {
             "type": "section",
-            "title": "Apparence",
+            "title": "$t.appearance",
             "children": [
               {
                 "type": "picker",
-                "label": "Couleur normale",
+                "label": "$t.color",
                 "value": "$ui.editorColor",
                 "options": [
                   {
-                    "label": "Menthe",
+                    "label": "$colorNames.mint",
                     "value": "mint"
                   },
                   {
-                    "label": "Cyan",
+                    "label": "$colorNames.cyan",
                     "value": "cyan"
                   },
                   {
-                    "label": "Bleu",
+                    "label": "$colorNames.blue",
                     "value": "blue"
                   },
                   {
-                    "label": "Indigo",
+                    "label": "$colorNames.indigo",
                     "value": "indigo"
                   },
                   {
-                    "label": "Violet",
+                    "label": "$colorNames.purple",
                     "value": "purple"
                   },
                   {
-                    "label": "Rose",
+                    "label": "$colorNames.pink",
                     "value": "pink"
                   },
                   {
-                    "label": "Vert",
+                    "label": "$colorNames.green",
                     "value": "green"
                   },
                   {
-                    "label": "Orange",
+                    "label": "$colorNames.orange",
                     "value": "orange"
                   },
                   {
-                    "label": "Jaune",
+                    "label": "$colorNames.yellow",
                     "value": "yellow"
                   },
                   {
-                    "label": "Blanc",
+                    "label": "$colorNames.white",
                     "value": "white"
                   }
                 ],
@@ -371,7 +372,7 @@
               },
               {
                 "type": "badge",
-                "text": "Aperçu de la couleur",
+                "text": "$t.colorPreview",
                 "symbol": "$editing.symbol",
                 "tint": "$ui.editorColor"
               }
@@ -379,15 +380,15 @@
           },
           {
             "type": "section",
-            "title": "Seuils · {{ui.editorUnit}}",
+            "title": "{{t.thresholds}} · {{ui.editorUnit}}",
             "children": [
               {
                 "type": "text",
                 "text": {
                   "if": [
                     "$ui.editorLow",
-                    "Alerte lorsque la valeur descend sous le seuil. Critique doit être inférieur à Vigilance.",
-                    "Alerte lorsque la valeur atteint le seuil. Critique doit être supérieur à Vigilance."
+                    "$t.lowHelp",
+                    "$t.highHelp"
                   ]
                 },
                 "style": "footnote",
@@ -395,7 +396,7 @@
               },
               {
                 "type": "stepper",
-                "label": "Vigilance · {{ui.editorWarning}} {{ui.editorUnit}}",
+                "label": "{{t.warning}} · {{ui.editorWarning}} {{ui.editorUnit}}",
                 "value": "$ui.editorWarning",
                 "min": 0,
                 "max": "$ui.editorMax",
@@ -407,7 +408,7 @@
               },
               {
                 "type": "stepper",
-                "label": "Critique · {{ui.editorCritical}} {{ui.editorUnit}}",
+                "label": "{{t.critical}} · {{ui.editorCritical}} {{ui.editorUnit}}",
                 "value": "$ui.editorCritical",
                 "min": 0,
                 "max": "$ui.editorMax",
@@ -419,7 +420,7 @@
               },
               {
                 "type": "text",
-                "text": "Vigilance : orange · Critique : rouge. Le texte indique aussi l’état.",
+                "text": "$t.colorsHelp",
                 "style": "caption",
                 "color": "secondary"
               }
@@ -427,7 +428,7 @@
           },
           {
             "type": "button",
-            "label": "Annuler",
+            "label": "$t.cancel",
             "action": {
               "dismiss": true
             },
@@ -437,7 +438,7 @@
       }
     },
     "settings": {
-      "title": "Votre tableau de bord",
+      "title": "$t.settings",
       "detents": [
         "large"
       ],
@@ -445,7 +446,7 @@
         "trailing": [
           {
             "type": "button",
-            "label": "Terminer",
+            "label": "$t.done",
             "action": {
               "dismiss": true
             },
@@ -458,17 +459,17 @@
         "children": [
           {
             "type": "section",
-            "title": "Mesures",
+            "title": "$t.metrics",
             "children": [
               {
                 "type": "text",
-                "text": "Touchez une mesure pour régler ses seuils et sa couleur. Les pages et les tuiles se composent dans l’éditeur sur l’ordinateur.",
+                "text": "$t.metricsHelp",
                 "style": "footnote",
                 "color": "secondary"
               },
               {
                 "type": "button",
-                "label": "Ouvrir l’éditeur de pages sur l’ordinateur",
+                "label": "$t.openEditor",
                 "symbol": "square.grid.2x2",
                 "variant": "bordered",
                 "action": {
@@ -489,14 +490,14 @@
                     "if": [
                       "$widget.visible",
                       "$widget.display",
-                      "Sur aucune page"
+                      "$t.onNoPage"
                     ]
                   },
                   "symbol": "$widget.symbol",
                   "value": {
                     "if": [
                       "$widget.visible",
-                      "Affiché",
+                      "$t.shown",
                       "—"
                     ]
                   },
@@ -556,11 +557,11 @@
           },
           {
             "type": "section",
-            "title": "Collecte",
+            "title": "$t.collection",
             "children": [
               {
                 "type": "picker",
-                "label": "Cadence CPU et mémoire",
+                "label": "$t.interval",
                 "value": {
                   "coalesce": [
                     "$ui.pendingInterval",
@@ -605,13 +606,13 @@
               },
               {
                 "type": "text",
-                "text": "Les capteurs matériels et le disque sont relus toutes les 5 secondes. Historique : 1 minute, conservé en mémoire pendant la session.",
+                "text": "$t.intervalHelp",
                 "style": "caption",
                 "color": "secondary"
               },
               {
                 "type": "toggle",
-                "label": "Notifier les seuils critiques",
+                "label": "$t.notify",
                 "symbol": "bell",
                 "value": {
                   "coalesce": [
@@ -643,7 +644,7 @@
               },
               {
                 "type": "text",
-                "text": "Une notification Onbun à l’entrée en état critique, au plus une par minute et par widget.",
+                "text": "$t.notifyHelp",
                 "style": "caption",
                 "color": "secondary"
               }
@@ -651,12 +652,50 @@
           },
           {
             "type": "section",
-            "title": "Capteurs",
+            "title": "$t.language",
+            "children": [
+              {
+                "type": "picker",
+                "label": "$t.language",
+                "value": {
+                  "coalesce": [
+                    "$ui.pendingLanguage",
+                    "$language"
+                  ]
+                },
+                "options": "$languages",
+                "action": [
+                  {
+                    "set": "pendingLanguage",
+                    "value": "$value"
+                  },
+                  {
+                    "command": "language",
+                    "value": "$value",
+                    "onError": {
+                      "set": "pendingLanguage",
+                      "value": null
+                    }
+                  },
+                  {
+                    "refresh": true
+                  },
+                  {
+                    "set": "pendingLanguage",
+                    "value": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "title": "$t.sensors",
             "children": [
               {
                 "type": "row",
-                "title": "Sources disponibles",
-                "subtitle": "{{availableCount}} mesures accessibles sur 8",
+                "title": "$t.sources",
+                "subtitle": "$availableText",
                 "symbol": "waveform.path.ecg",
                 "accessory": "chevron",
                 "action": [
@@ -670,12 +709,12 @@
               },
               {
                 "type": "row",
-                "title": "Télémétrie locale",
+                "title": "$t.telemetry",
                 "value": {
                   "if": [
                     "$telemetryConnected",
-                    "Connectée",
-                    "Non connectée"
+                    "$t.connected",
+                    "$t.notConnected"
                   ]
                 },
                 "symbol": "cable.connector"
@@ -684,7 +723,7 @@
           },
           {
             "type": "section",
-            "title": "Cet ordinateur",
+            "title": "$t.thisComputer",
             "children": [
               {
                 "type": "row",
@@ -700,7 +739,7 @@
               },
               {
                 "type": "text",
-                "text": "Aucun compte ni service distant. Seules les mesures et les préférences visuelles sont envoyées au téléphone.",
+                "text": "$t.privacy",
                 "style": "caption",
                 "color": "secondary"
               }
@@ -710,7 +749,7 @@
       }
     },
     "sensors": {
-      "title": "Sources et capteurs",
+      "title": "$t.sourcesTitle",
       "detents": [
         "large"
       ],
@@ -719,11 +758,11 @@
         "children": [
           {
             "type": "section",
-            "title": "Ce qui est mesuré",
+            "title": "$t.measured",
             "children": [
               {
                 "type": "text",
-                "text": "CPU et mémoire : API du système. Disque : espace occupé du volume système, pas le débit ni l’activité. Charge : moyenne Unix sur une minute, normalisée par cœur ; indisponible sous Windows.",
+                "text": "$t.measuredHelp",
                 "style": "footnote",
                 "color": "secondary"
               }
@@ -731,11 +770,11 @@
           },
           {
             "type": "section",
-            "title": "GPU et températures",
+            "title": "$t.gpuTitle",
             "children": [
               {
                 "type": "text",
-                "text": "NVIDIA : nvidia-smi, installé avec le pilote, accessible dans le PATH. Windows : lancez Libre Hardware Monitor avec son fournisseur WMI activé. Linux : capteurs CPU hwmon coretemp/k10temp compatibles ; GPU exposant gpu_busy_percent et température AMD. macOS et autres GPU : utilisez la télémétrie locale. Aucun privilège élevé n’est demandé par Vitals.",
+                "text": "$t.gpuHelp",
                 "style": "footnote",
                 "color": "secondary"
               }
@@ -743,23 +782,23 @@
           },
           {
             "type": "section",
-            "title": "FPS et télémétrie",
+            "title": "$t.fpsTitle",
             "children": [
               {
                 "type": "text",
-                "text": "Les FPS d’un jeu ne sont pas la fréquence de l’écran. Connectez un outil qui produit de vrais relevés (jeu, outil de capture ou moniteur matériel).",
+                "text": "$t.fpsHelp",
                 "style": "footnote",
                 "color": "secondary"
               },
               {
                 "type": "text",
-                "text": "Sur l’ordinateur : îlot → Réglages → Vitals. Le chemin de telemetry.json et son format y sont indiqués. Votre outil doit écrire un timestamp en millisecondes Unix et les champs fps, gpu, cpuTemp ou gpuTemp toutes les 1 à 5 secondes.",
+                "text": "$t.telemetryHelp",
                 "style": "footnote",
                 "color": "secondary"
               },
               {
                 "type": "text",
-                "text": "Après 10 secondes sans mise à jour, les mesures externes expirent. Les champs absents conservent les sources matérielles disponibles. Les données invalides affichent une erreur.",
+                "text": "$t.expiryHelp",
                 "style": "caption",
                 "color": "secondary"
               }
@@ -767,7 +806,7 @@
           },
           {
             "type": "section",
-            "title": "État des sources",
+            "title": "$t.sourceState",
             "children": [
               {
                 "type": "each",
@@ -793,7 +832,7 @@
           },
           {
             "type": "button",
-            "label": "Fermer",
+            "label": "$t.close",
             "action": {
               "dismiss": true
             },

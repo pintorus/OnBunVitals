@@ -6,8 +6,29 @@
   const el = (tag, props = {}, ...kids) => { const n = Object.assign(document.createElement(tag), props); for (const k of kids) if (k != null) n.append(k); return n; };
   const clone = v => JSON.parse(JSON.stringify(v));
   const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const DISPLAY = { value: 'Chiffre', gauge: 'Jauge', chart: 'Courbe', bar: 'Barre' };
-  const HEIGHT = { s: 'Fine', m: 'Moyenne', l: 'Haute', xl: 'Très haute' };
+  // Translations arrive with the state from the app (state.t); keys are the `ed.*` names with dots as underscores.
+  const T = (key, params) => {
+    let text = server?.t?.[key.replace(/\./g, '_')] ?? key;
+    if (params) text = text.replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m));
+    return text;
+  };
+  const DISPLAY = () => Object.fromEntries(server.displays.map(d => [d, T(`d.${d}`)]));
+  const HEIGHT = () => Object.fromEntries(Object.keys(server.heights).map(h => [h, T(`h.${h}`)]));
+  let appliedLang = '';
+  function applyTexts() {
+    if (!server || server.lang === appliedLang) return;
+    appliedLang = server.lang;
+    document.documentElement.lang = server.lang;
+    document.title = T('title');
+    const apply = root => {
+      root.querySelectorAll('[data-i18n]').forEach(n => { n.textContent = T(n.dataset.i18n); });
+      root.querySelectorAll('[data-i18n-title]').forEach(n => { n.title = T(n.dataset.i18nTitle); });
+    };
+    apply(document); apply($('hint').content);
+    $('orientation').setAttribute('aria-label', T('preview'));
+    const select = $('language'); select.setAttribute('aria-label', T('language'));
+    select.replaceChildren(...server.languages.map(l => el('option', { value: l.value, textContent: l.label })));
+  }
   const BIG = { s: 26, m: 40, l: 58, xl: 80 };
 
   let server = null;   // last state from the backend
@@ -18,11 +39,11 @@
   async function api(method, path, body) {
     const res = await fetch(path, { method, headers: { 'X-Vitals-Token': token, 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data;
   }
   function status(text, kind = '') { const s = $('status'); s.textContent = text; s.className = 'status ' + kind; }
-  function markDirty() { dirty = true; $('save').disabled = false; $('revert').disabled = false; status('Modifications non envoyées', 'dirty'); render(); }
+  function markDirty() { dirty = true; $('save').disabled = false; $('revert').disabled = false; status(T('dirty'), 'dirty'); render(); }
 
   const page = () => pages[pageIndex];
   const live = id => server.widgets.find(w => w.id === id);
@@ -62,12 +83,12 @@
 
   function tileNode(tile, row) {
     const w = live(tile.metric), color = tint(tile);
-    const node = el('div', { className: 'tile' + (selected === tile.id ? ' selected' : ''), draggable: true, title: 'Cliquer pour modifier · glisser pour déplacer' });
+    const node = el('div', { className: 'tile' + (selected === tile.id ? ' selected' : ''), draggable: true, title: T('tileTitle') });
     node.style.borderColor = selected === tile.id ? '' : (color === 'red' || color === 'orange' ? `var(--${color})` : '');
     node.append(el('div', { className: 'label' }, el('b', { textContent: w.name }), row.height !== 's' ? el('span', { textContent: w.statusLabel }) : null));
     const n = w.value === null ? '—' : Math.round(w.value);
     const size = Math.round((BIG[row.height] - (row.tiles.length > 2 ? 8 : 0)) * 0.8);
-    if (!w.available && tile.display !== 'value') node.append(el('div', { className: 'na', textContent: 'Indisponible sur ce PC' }));
+    if (!w.available && tile.display !== 'value') node.append(el('div', { className: 'na', textContent: T('unavailableHere') }));
     else if (tile.display === 'gauge') {
       const pct = w.value === null ? 0 : Math.min(1, w.value / w.max);
       const ring = el('div', { className: 'big' }); ring.style.cssText = `margin:auto;width:${size * 1.4}px;height:${size * 1.4}px;border-radius:50%;display:grid;place-items:center;font-size:${size * .42}px;background:radial-gradient(var(--tile) 62%,transparent 63%),conic-gradient(var(--${color}) ${pct * 360}deg,var(--raised) 0)`;
@@ -110,8 +131,8 @@
     });
     const available = server.fit[orientation]; // visible HUD height in points, typical phone
     const fit = $('fit');
-    if (used > available) { fit.textContent = `La page dépasse l’écran d’environ ${used - available} pt en ${orientation === 'portrait' ? 'portrait' : 'paysage'} : réduisez une rangée pour un affichage tête haute sans défilement.`; fit.className = 'fit warn'; }
-    else { fit.textContent = `${p.rows.length} rangée${p.rows.length > 1 ? 's' : ''} · tient sur l’écran sans défiler.`; fit.className = 'fit'; }
+    if (used > available) { fit.textContent = T('overflow', { pt: used - available, orientation: T(orientation).toLowerCase() }); fit.className = 'fit warn'; }
+    else { fit.textContent = T('fits', { rows: p.rows.length }); fit.className = 'fit'; }
     $('addRow').disabled = p.rows.length >= server.limits.rows;
   }
 
@@ -121,8 +142,8 @@
   }
   function swatches(current, onPick) {
     return el('div', { className: 'swatches' },
-      el('button', { className: 'auto' + (current === 'auto' ? ' on' : ''), title: 'Couleur de la mesure', onclick: () => onPick('auto') }),
-      ...server.colors.map(c => { const b = el('button', { title: c, className: c === current ? 'on' : '', onclick: () => onPick(c) }); b.style.background = `var(--${c})`; return b; }));
+      el('button', { className: 'auto' + (current === 'auto' ? ' on' : ''), title: T('metricColor'), onclick: () => onPick('auto') }),
+      ...server.colors.map(c => { const b = el('button', { title: server.colorNames?.[c] || c, className: c === current ? 'on' : '', onclick: () => onPick(c) }); b.style.background = `var(--${c})`; return b; }));
   }
   function field(label, control) { return el('label', { className: 'field' }, el('span', { textContent: label }), control); }
 
@@ -133,11 +154,11 @@
       input.onchange = () => { m[key] = Number(input.value); markDirty(); };
       return input;
     };
-    return [el('h3', { textContent: `Seuils · ${w.name}` }),
-      el('div', { className: 'thresholds' }, field(`Vigilance (${w.unit})`, num('warning')), field(`Critique (${w.unit})`, num('critical'))),
-      el('p', { className: 'note', textContent: w.low ? 'Alerte quand la valeur descend sous le seuil.' : 'Alerte quand la valeur atteint le seuil.' }),
-      field('Couleur par défaut de la mesure', swatches(m.color, c => { m.color = c === 'auto' ? m.color : c; markDirty(); })),
-      el('p', { className: 'note', textContent: `${w.source || 'Source indisponible'} · ${w.detail || ''}` })];
+    return [el('h3', { textContent: T('thresholdsOf', { name: w.name }) }),
+      el('div', { className: 'thresholds' }, field(T('warningUnit', { unit: w.unit }), num('warning')), field(T('criticalUnit', { unit: w.unit }), num('critical'))),
+      el('p', { className: 'note', textContent: T(w.low ? 'lowNote' : 'highNote') }),
+      field(T('metricDefaultColor'), swatches(m.color, c => { m.color = c === 'auto' ? m.color : c; markDirty(); })),
+      el('p', { className: 'note', textContent: `${w.source || T('noSource')} · ${w.detail || ''}` })];
   }
 
   function renderInspector() {
@@ -145,31 +166,31 @@
     const { row, tile } = selected ? find(selected) : {};
     if (tile) {
       const idx = row.tiles.indexOf(tile);
-      const select = el('select', {}, ...server.widgets.map(w => el('option', { value: w.id, textContent: w.name + (w.available ? '' : ' (indisponible)'), selected: w.id === tile.metric })));
+      const select = el('select', {}, ...server.widgets.map(w => el('option', { value: w.id, textContent: w.name + (w.available ? '' : T('unavailableSuffix')), selected: w.id === tile.metric })));
       select.onchange = () => { tile.metric = select.value; markDirty(); };
-      box.append(el('h2', { textContent: 'Tuile' }),
-        field('Mesure', select),
-        field('Affichage', choices(server.displays, tile.display, d => { tile.display = d; markDirty(); }, DISPLAY)),
-        field('Couleur', swatches(tile.color, c => { tile.color = c; markDirty(); })),
+      box.append(el('h2', { textContent: T('tile') }),
+        field(T('metric'), select),
+        field(T('display'), choices(server.displays, tile.display, d => { tile.display = d; markDirty(); }, DISPLAY())),
+        field(T('color'), swatches(tile.color, c => { tile.color = c; markDirty(); })),
         el('div', { className: 'actions' },
-          el('button', { textContent: '◀', title: 'Vers la gauche', disabled: idx === 0, onclick: () => { row.tiles.splice(idx - 1, 0, row.tiles.splice(idx, 1)[0]); markDirty(); } }),
-          el('button', { textContent: '▶', title: 'Vers la droite', disabled: idx === row.tiles.length - 1, onclick: () => { row.tiles.splice(idx + 1, 0, row.tiles.splice(idx, 1)[0]); markDirty(); } }),
-          el('button', { textContent: 'Dupliquer', disabled: row.tiles.length >= server.limits.tiles, onclick: () => { const c = { ...clone(tile), id: uid('t') }; row.tiles.splice(idx + 1, 0, c); selected = c.id; markDirty(); } }),
-          el('button', { textContent: 'Supprimer', className: 'danger', onclick: () => removeTile(row, tile) })),
+          el('button', { textContent: '◀', title: T('left'), disabled: idx === 0, onclick: () => { row.tiles.splice(idx - 1, 0, row.tiles.splice(idx, 1)[0]); markDirty(); } }),
+          el('button', { textContent: '▶', title: T('right'), disabled: idx === row.tiles.length - 1, onclick: () => { row.tiles.splice(idx + 1, 0, row.tiles.splice(idx, 1)[0]); markDirty(); } }),
+          el('button', { textContent: T('duplicate'), disabled: row.tiles.length >= server.limits.tiles, onclick: () => { const c = { ...clone(tile), id: uid('t') }; row.tiles.splice(idx + 1, 0, c); selected = c.id; markDirty(); } }),
+          el('button', { textContent: T('delete'), className: 'danger', onclick: () => removeTile(row, tile) })),
         ...metricPanel(tile.metric));
     } else if (row) {
       const ri = page().rows.indexOf(row);
-      box.append(el('h2', { textContent: 'Rangée' }),
-        field('Hauteur', choices(Object.keys(server.heights), row.height, h => { row.height = h; markDirty(); }, HEIGHT)),
+      box.append(el('h2', { textContent: T('row') }),
+        field(T('height'), choices(Object.keys(server.heights), row.height, h => { row.height = h; markDirty(); }, HEIGHT())),
         el('div', { className: 'actions' },
-          el('button', { textContent: '＋ Tuile', disabled: row.tiles.length >= server.limits.tiles, onclick: () => { const t = { id: uid('t'), metric: 'cpu', display: 'value', color: 'auto' }; row.tiles.push(t); selected = t.id; markDirty(); } }),
-          el('button', { textContent: '▲', title: 'Monter', disabled: ri === 0, onclick: () => { page().rows.splice(ri - 1, 0, page().rows.splice(ri, 1)[0]); markDirty(); } }),
-          el('button', { textContent: '▼', title: 'Descendre', disabled: ri === page().rows.length - 1, onclick: () => { page().rows.splice(ri + 1, 0, page().rows.splice(ri, 1)[0]); markDirty(); } }),
-          el('button', { textContent: 'Supprimer la rangée', className: 'danger', disabled: page().rows.length === 1, onclick: () => { page().rows.splice(ri, 1); selected = null; markDirty(); } })),
-        el('p', { className: 'note', textContent: 'Les tuiles d’une rangée se partagent sa largeur à parts égales, comme sur le téléphone.' }));
+          el('button', { textContent: T('addTile'), disabled: row.tiles.length >= server.limits.tiles, onclick: () => { const t = { id: uid('t'), metric: 'cpu', display: 'value', color: 'auto' }; row.tiles.push(t); selected = t.id; markDirty(); } }),
+          el('button', { textContent: '▲', title: T('up'), disabled: ri === 0, onclick: () => { page().rows.splice(ri - 1, 0, page().rows.splice(ri, 1)[0]); markDirty(); } }),
+          el('button', { textContent: '▼', title: T('down'), disabled: ri === page().rows.length - 1, onclick: () => { page().rows.splice(ri + 1, 0, page().rows.splice(ri, 1)[0]); markDirty(); } }),
+          el('button', { textContent: T('deleteRow'), className: 'danger', disabled: page().rows.length === 1, onclick: () => { page().rows.splice(ri, 1); selected = null; markDirty(); } })),
+        el('p', { className: 'note', textContent: T('rowNote') }));
     } else {
       box.append($('hint').content.cloneNode(true));
-      const interval = el('p', { className: 'note', textContent: `Rafraîchissement des mesures : toutes les ${server.interval} s (réglable sur le téléphone).` });
+      const interval = el('p', { className: 'note', textContent: T('intervalNote', { s: server.interval }) });
       box.append(interval);
     }
   }
@@ -195,13 +216,14 @@
     x.row.tiles[i] = y.tile; y.row.tiles[j] = x.tile; selected = a; markDirty();
   }
 
-  function render() { if (!server) return; renderTabs(); renderStage(); renderInspector(); }
+  function render() { if (!server) return; applyTexts(); $('language').value = server.language; renderTabs(); renderStage(); renderInspector(); }
 
   function load(state, keepEdits, live = false) {
     const first = !server;
     server = state;
     // Live polling only refreshes the preview, so controls in the inspector stay clickable.
     if (live && !first && drag) return;
+    if (live && !first && server.lang !== appliedLang) { render(); return; }
     if (live && !first) { if (!keepEdits && JSON.stringify(state.pages) !== JSON.stringify(pages)) { pages = clone(state.pages); pageIndex = Math.min(pageIndex, pages.length - 1); renderTabs(); } renderStage(); return; }
     if (!keepEdits) { pages = clone(state.pages); widgets = clone(state.widgets.map(({ id, visible, size, color, warning, critical }) => ({ id, visible, size, color, warning, critical }))); dirty = false; $('save').disabled = true; $('revert').disabled = true; }
     pageIndex = Math.min(pageIndex, pages.length - 1);
@@ -209,18 +231,22 @@
   }
 
   // ---------- Wiring ----------
-  $('addPage').onclick = () => { pages.push({ id: uid('p'), name: `Page ${pages.length + 1}`, rows: [{ id: uid('r'), height: 'l', tiles: [{ id: uid('t'), metric: 'fps', display: 'value', color: 'auto' }] }] }); pageIndex = pages.length - 1; selected = null; markDirty(); };
+  $('addPage').onclick = () => { pages.push({ id: uid('p'), name: T('newPage', { n: pages.length + 1 }), rows: [{ id: uid('r'), height: 'l', tiles: [{ id: uid('t'), metric: 'fps', display: 'value', color: 'auto' }] }] }); pageIndex = pages.length - 1; selected = null; markDirty(); };
   $('addRow').onclick = () => { const r = { id: uid('r'), height: 'm', tiles: [{ id: uid('t'), metric: 'cpu', display: 'value', color: 'auto' }] }; page().rows.push(r); selected = r.id; markDirty(); };
-  $('pageName').oninput = e => { page().name = e.target.value.slice(0, 24); dirty = true; $('save').disabled = false; $('revert').disabled = false; status('Modifications non envoyées', 'dirty'); renderTabs(); };
+  $('pageName').oninput = e => { page().name = e.target.value.slice(0, 24); dirty = true; $('save').disabled = false; $('revert').disabled = false; status(T('dirty'), 'dirty'); renderTabs(); };
   $('pageLeft').onclick = () => { pages.splice(pageIndex - 1, 0, pages.splice(pageIndex, 1)[0]); pageIndex--; markDirty(); };
   $('pageRight').onclick = () => { pages.splice(pageIndex + 1, 0, pages.splice(pageIndex, 1)[0]); pageIndex++; markDirty(); };
-  $('pageDelete').onclick = () => { if (confirm(`Supprimer la page « ${page().name} » ?`)) { pages.splice(pageIndex, 1); pageIndex = Math.max(0, pageIndex - 1); selected = null; markDirty(); } };
+  $('pageDelete').onclick = () => { if (confirm(T('deletePageConfirm', { name: page().name }))) { pages.splice(pageIndex, 1); pageIndex = Math.max(0, pageIndex - 1); selected = null; markDirty(); } };
   $('orientation').onclick = e => { const o = e.target.dataset.o; if (!o) return; orientation = o; [...$('orientation').children].forEach(b => b.classList.toggle('on', b.dataset.o === o)); render(); };
-  $('revert').onclick = () => { selected = null; load(server, false); status('Modifications annulées'); };
+  $('revert').onclick = () => { selected = null; load(server, false); status(T('discarded')); };
   $('save').onclick = async () => {
-    $('save').disabled = true; status('Envoi…');
-    try { load(await api('PUT', '/api/layout', { pages, widgets }), false); status('Envoyé · le téléphone est à jour'); }
+    $('save').disabled = true; status(T('sending'));
+    try { load(await api('PUT', '/api/layout', { pages, widgets }), false); status(T('sent')); }
     catch (e) { $('save').disabled = false; status(e.message, 'error'); }
+  };
+  $('language').onchange = async e => {
+    try { const state = await api('PUT', '/api/language', { language: e.target.value }); server = { ...server, ...state, pages: server.pages, widgets: server.widgets }; appliedLang = ''; render(); status(T(dirty ? 'dirty' : 'connected'), dirty ? 'dirty' : ''); }
+    catch (err) { status(err.message, 'error'); }
   };
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (!$('save').disabled) $('save').click(); }
@@ -229,9 +255,9 @@
   });
 
   async function poll() {
-    try { load(await api('GET', '/api/state'), dirty, true); if (!dirty && !$('status').textContent) status('Connecté · aperçu en direct'); }
+    try { load(await api('GET', '/api/state'), dirty, true); if (!dirty && !$('status').textContent) status(T('connected')); }
     catch (e) { status(e.message, 'error'); }
     setTimeout(poll, 1500);
   }
-  if (!token) status('Ouvrez l’éditeur depuis Vitals (îlot ou téléphone).', 'error'); else poll();
+  if (!token) status('Open the editor from Vitals (island or phone).', 'error'); else poll();
 })();
