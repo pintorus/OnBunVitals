@@ -1,5 +1,10 @@
 # Changes
 
+## 1.6.2
+
+- Use English for the manifest description shown in the Onbun app store and submission review page.
+- Runtime behavior is unchanged from 1.6.1.
+
 ## 1.6.1
 
 Vitals 1.6.1 adds island controls and an optional Windows FPS collector.
