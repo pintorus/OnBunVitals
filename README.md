@@ -5,7 +5,7 @@ A native system-monitoring dashboard for [Onbun](https://mathieudvv.github.io/Wi
 ## Features
 
 - **A heads-up display for gamers**: swipe between full-screen pages of tiles on your phone, and read FPS, CPU, GPU and temperatures without leaving fullscreen or cluttering your game.
-- **A real page editor on your computer** (Windows, macOS, Linux): add pages, build rows of 1–4 tiles, set each row's height, choose each tile's metric, display (number, gauge, chart or bar) and color, drag tiles between rows, with a live preview in landscape and portrait.
+- **A real page editor on your computer** (Windows, macOS, Linux): add pages, place and resize tiles freely on a magnetic grid, choose each tile's metric, display (number, gauge, chart or bar) and color, with a live preview in landscape and portrait.
 - Tiles stay calm and turn orange or red only when a warning or critical threshold is crossed.
 - CPU usage, memory, system-disk space, GPU usage, CPU/GPU temperatures, FPS and system load, when supported by your hardware or a local telemetry source.
 - Optional Onbun critical notifications, settings saved on your computer, no npm dependencies, account or remote service.
@@ -25,9 +25,10 @@ Copy `vitals`, rather than the repository folder `OnBunVitals`. Node.js is provi
 
 Open the editor from the grid button in the phone's top bar, or from the Vitals card on the Onbun island (**Ouvrir l’éditeur de pages**). It opens in a window on your computer.
 
-- Pick a page in the tabs at the top, or add one with **＋ Page** (up to 8).
-- Click a row to set its height or add a tile; click a tile to choose its metric, display and color, and to edit that metric's thresholds.
-- Drag a tile onto another row to move it, or onto another tile to swap them.
+- Pick a page in the tabs at the top, or add one with **＋ Page** (up to 8). Untick **Affichée sur le téléphone** to hide a page without deleting it.
+- Click a tile to choose its metric, display, size and color, and to edit that metric's thresholds. **＋ Tuile** adds one.
+- Drag a tile to move it and pull its corner to resize it: it snaps to the grid, other tiles make room, and the magnet keeps the layout drawable on the phone.
+- Switch the preview to **Portrait** and tick **Disposition portrait dédiée** to give a page a different layout in portrait.
 - The preview warns when a page is taller than the phone screen, so a HUD page never needs scrolling.
 - **Envoyer au téléphone** (Send to phone, or Ctrl/⌘+S) saves the layout, and the phone updates immediately. **Annuler** discards unsent changes.
 

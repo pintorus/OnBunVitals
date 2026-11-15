@@ -1,6 +1,6 @@
 'use strict';
 
-const { t, VitalsError } = require('./i18n.cjs');
+const { t, say, VitalsError } = require('./i18n.cjs');
 
 const definitions = [
   { id: 'cpu', symbol: 'cpu', unit: '%', max: 100, warning: 75, critical: 90, color: 'mint', size: 'large' },
@@ -54,10 +54,10 @@ function severity(value, widget, definition) {
 function view(config, readings, histories) {
   return config.widgets.map(w => {
     const d = definitions.find(d => d.id === w.id);
-    const r = readings[w.id] || { value: null, detail: t('det.unavailable'), source: '' };
+    const r = readings[w.id] || { value: null, detail: { key: 'det.unavailable' }, source: '' };
     const value = Number.isFinite(r.value) ? r.value : null;
     const status = severity(value, w, d);
-    return { ...d, ...w, name: t(`metric.${d.id}`), value, available: value !== null, display: value === null ? '—' : `${Math.round(value)} ${d.unit}`, detail: r.detail, source: r.source,
+    return { ...d, ...w, name: t(`metric.${d.id}`), value, available: value !== null, display: value === null ? '—' : `${Math.round(value)} ${d.unit}`, detail: say(r.detail), source: say(r.source),
       status, statusLabel: t(`status.${status}`),
       tint: status === 'critical' ? 'red' : status === 'warning' ? 'orange' : w.color,
       height: { small: 128, medium: 238, large: 310 }[w.size],

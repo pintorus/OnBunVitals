@@ -19,6 +19,15 @@ const S = {
   'metric.gpuTemp': ['Température GPU', 'GPU temperature', 'Temperatura GPU', 'GPU-Temperatur'],
   'metric.fps': ['Images par seconde', 'Frames per second', 'Imágenes por segundo', 'Bilder pro Sekunde'],
   'metric.load': ['Charge système', 'System load', 'Carga del sistema', 'Systemlast'],
+  // Short names for narrow tiles, where the full name would be cut.
+  'short.cpu': ['CPU', 'CPU', 'CPU', 'CPU'],
+  'short.memory': ['RAM', 'RAM', 'RAM', 'RAM'],
+  'short.disk': ['Disque', 'Disk', 'Disco', 'Disk'],
+  'short.gpu': ['GPU', 'GPU', 'GPU', 'GPU'],
+  'short.cpuTemp': ['T° CPU', 'CPU temp', 'T° CPU', 'CPU-Temp'],
+  'short.gpuTemp': ['T° GPU', 'GPU temp', 'T° GPU', 'GPU-Temp'],
+  'short.fps': ['FPS', 'FPS', 'FPS', 'FPS'],
+  'short.load': ['Charge', 'Load', 'Carga', 'Last'],
   'status.unavailable': ['Indisponible', 'Unavailable', 'No disponible', 'Nicht verfügbar'],
   'status.normal': ['Normal', 'Normal', 'Normal', 'Normal'],
   'status.warning': ['Vigilance', 'Warning', 'Atención', 'Warnung'],
@@ -79,7 +88,8 @@ const S = {
   'err.pageName': ['Chaque page a un nom de 1 à {max} caractères.', 'Each page needs a name of 1 to {max} characters.', 'Cada página necesita un nombre de 1 a {max} caracteres.', 'Jede Seite braucht einen Namen mit 1 bis {max} Zeichen.'],
   'err.rows': ['La page « {name} » doit avoir entre 1 et {max} rangées.', 'Page “{name}” needs between 1 and {max} rows.', 'La página «{name}» necesita entre 1 y {max} filas.', 'Seite „{name}“ braucht 1 bis {max} Reihen.'],
   'err.rowHeight': ['Hauteur de rangée invalide.', 'Invalid row height.', 'Altura de fila no válida.', 'Ungültige Reihenhöhe.'],
-  'err.tiles': ['Chaque rangée contient entre 1 et {max} tuiles.', 'Each row holds between 1 and {max} tiles.', 'Cada fila contiene entre 1 y {max} mosaicos.', 'Jede Reihe enthält 1 bis {max} Kacheln.'],
+  'err.tiles': ['Une page contient entre 1 et {max} tuiles.', 'A page holds between 1 and {max} tiles.', 'Una página contiene entre 1 y {max} mosaicos.', 'Eine Seite enthält 1 bis {max} Kacheln.'],
+  'err.spans': ['Les largeurs d’une rangée doivent remplir la rangée (en quarts).', 'Tile widths in a row must fill the row (in quarters).', 'Los anchos de una fila deben llenarla (en cuartos).', 'Die Kachelbreiten einer Reihe müssen sie füllen (in Vierteln).'],
   'err.tile': ['Réglages de tuile invalides.', 'Invalid tile settings.', 'Ajustes de mosaico no válidos.', 'Ungültige Kachel-Einstellungen.'],
   'err.host': ['Hôte refusé.', 'Host refused.', 'Host rechazado.', 'Host abgelehnt.'],
   'err.notFound': ['Introuvable.', 'Not found.', 'No encontrado.', 'Nicht gefunden.'],
@@ -101,7 +111,7 @@ const S = {
   'sys.pageGame': ['Jeu', 'Game', 'Juego', 'Spiel'],
   'sys.pageSystem': ['Système', 'System', 'Sistema', 'System'],
   'island.openEditor': ['Ouvrir l’éditeur de pages', 'Open the page editor', 'Abrir el editor de páginas', 'Seiten-Editor öffnen'],
-  'pc.intro': ['Composez vos pages de tuiles dans l’éditeur PC : depuis l’îlot (Vitals → Éditeur) ou le bouton grille du téléphone.', 'Build your tile pages in the PC editor: from the island (Vitals → Editor) or the phone’s grid button.', 'Crea tus páginas de mosaicos en el editor del PC: desde la isla (Vitals → Editor) o el botón de cuadrícula del teléfono.', 'Gestalte deine Kachelseiten im PC-Editor: über die Insel (Vitals → Editor) oder die Raster-Taste am Handy.'],
+  'pc.intro': ['Composez vos pages de tuiles dans l’éditeur : ce bouton, la carte Vitals de l’îlot ou le bouton grille du téléphone.', 'Build your tile pages in the editor: this button, the Vitals card on the island or the phone’s grid button.', 'Crea tus páginas de mosaicos en el editor del PC: desde la isla (Vitals → Editor) o el botón de cuadrícula del teléfono.', 'Gestalte deine Kachelseiten im PC-Editor: über die Insel (Vitals → Editor) oder die Raster-Taste am Handy.'],
   'pc.editorAt': ['Éditeur ouvert sur {url}', 'Editor open at {url}', 'Editor abierto en {url}', 'Editor geöffnet unter {url}'],
   'pc.sources': ['CPU et mémoire : système. GPU NVIDIA : nvidia-smi. Windows : Libre Hardware Monitor (WMI). Linux : hwmon CPU et GPU compatibles. Autres GPU et FPS : télémétrie locale.', 'CPU and memory: system. NVIDIA GPU: nvidia-smi. Windows: Libre Hardware Monitor (WMI). Linux: compatible CPU and GPU hwmon. Other GPUs and FPS: local telemetry.', 'CPU y memoria: sistema. GPU NVIDIA: nvidia-smi. Windows: Libre Hardware Monitor (WMI). Linux: hwmon de CPU y GPU compatibles. Otras GPU y FPS: telemetría local.', 'CPU und Speicher: System. NVIDIA-GPU: nvidia-smi. Windows: Libre Hardware Monitor (WMI). Linux: kompatible CPU- und GPU-hwmon. Andere GPUs und FPS: lokale Telemetrie.'],
   'pc.telemetryFile': ['Fichier de télémétrie : {path}', 'Telemetry file: {path}', 'Archivo de telemetría: {path}', 'Telemetriedatei: {path}'],
@@ -172,6 +182,7 @@ const S = {
   'ed.revert': ['Annuler', 'Discard', 'Descartar', 'Verwerfen'],
   'ed.send': ['Envoyer au téléphone', 'Send to phone', 'Enviar al teléfono', 'An Handy senden'],
   'ed.page': ['Page', 'Page', 'Página', 'Seite'],
+  'ed.dragTab': ['Glisser pour changer l’ordre des pages', 'Drag to reorder pages', 'Arrastra para reordenar las páginas', 'Ziehen, um Seiten neu zu ordnen'],
   'ed.pageLeft': ['Déplacer la page à gauche', 'Move page left', 'Mover la página a la izquierda', 'Seite nach links'],
   'ed.pageRight': ['Déplacer la page à droite', 'Move page right', 'Mover la página a la derecha', 'Seite nach rechts'],
   'ed.deletePage': ['Supprimer la page', 'Delete page', 'Eliminar página', 'Seite löschen'],
@@ -216,7 +227,7 @@ const S = {
   'ed.highNote': ['Alerte quand la valeur atteint le seuil.', 'Alerts when the value reaches the threshold.', 'Alerta cuando el valor alcanza el umbral.', 'Warnt, wenn der Wert die Schwelle erreicht.'],
   'ed.noSource': ['Source indisponible', 'Source unavailable', 'Fuente no disponible', 'Quelle nicht verfügbar'],
   'ed.tileTitle': ['Cliquer pour modifier · glisser pour déplacer', 'Click to edit · drag to move', 'Haz clic para editar · arrastra para mover', 'Klicken zum Bearbeiten · Ziehen zum Verschieben'],
-  'ed.overflow': ['La page dépasse l’écran d’environ {pt} pt en {orientation} : réduisez une rangée pour un affichage tête haute sans défilement.', 'The page is about {pt} pt taller than the screen in {orientation}: shrink a row for a HUD that never scrolls.', 'La página supera la pantalla en unos {pt} pt en {orientation}: reduce una fila para un HUD sin desplazamiento.', 'Die Seite ist im {orientation}-Format etwa {pt} pt zu hoch: verkleinere eine Reihe für ein HUD ohne Scrollen.'],
+  'ed.overflow': ['La page dépasse l’écran d’environ {pt} pt en {orientation} : réduisez ou déplacez une tuile pour un affichage tête haute sans défilement.', 'The page is about {pt} pt taller than the screen in {orientation}: shrink or move a tile for a HUD that never scrolls.', 'La página supera la pantalla en unos {pt} pt en {orientation}: reduce o mueve un mosaico para un HUD sin desplazamiento.', 'Die Seite ist im {orientation}-Format etwa {pt} pt zu hoch: verkleinere oder verschiebe eine Kachel für ein HUD ohne Scrollen.'],
   'ed.fits': ['{rows} rangée(s) · tient sur l’écran sans défiler.', '{rows} row(s) · fits on screen without scrolling.', '{rows} fila(s) · cabe en pantalla sin desplazamiento.', '{rows} Reihe(n) · passt ohne Scrollen auf den Bildschirm.'],
   'ed.dirty': ['Modifications non envoyées', 'Unsent changes', 'Cambios sin enviar', 'Nicht gesendete Änderungen'],
   'ed.discarded': ['Modifications annulées', 'Changes discarded', 'Cambios descartados', 'Änderungen verworfen'],
@@ -224,6 +235,30 @@ const S = {
   'ed.sent': ['Envoyé · le téléphone est à jour', 'Sent · the phone is up to date', 'Enviado · el teléfono está al día', 'Gesendet · das Handy ist aktuell'],
   'ed.connected': ['Connecté · aperçu en direct', 'Connected · live preview', 'Conectado · vista previa en directo', 'Verbunden · Live-Vorschau'],
   'ed.noToken': ['Ouvrez l’éditeur depuis Vitals (îlot ou téléphone).', 'Open the editor from Vitals (island or phone).', 'Abre el editor desde Vitals (isla o teléfono).', 'Öffne den Editor aus Vitals (Insel oder Handy).'],
+  'ed.enabled': ['Affichée sur le téléphone', 'Shown on the phone', 'Visible en el teléfono', 'Am Handy angezeigt'],
+  'ed.disabledTab': ['{name} (masquée)', '{name} (hidden)', '{name} (oculta)', '{name} (ausgeblendet)'],
+  'ed.lastPage': ['Au moins une page reste affichée.', 'At least one page stays shown.', 'Al menos una página sigue visible.', 'Mindestens eine Seite bleibt sichtbar.'],
+  'ed.width': ['Largeur', 'Width', 'Ancho', 'Breite'],
+  'ed.w.equal': ['Égale', 'Equal', 'Igual', 'Gleich'],
+  'ed.quarters': ['{n}/4', '{n}/4', '{n}/4', '{n}/4'],
+  'ed.resizeTitle': ['Glisser pour élargir ou réduire', 'Drag to widen or narrow', 'Arrastra para ensanchar o estrechar', 'Ziehen zum Verbreitern oder Verschmälern'],
+  'ed.heightTitle': ['Glisser pour changer la hauteur', 'Drag to change the height', 'Arrastra para cambiar la altura', 'Ziehen, um die Höhe zu ändern'],
+  'ed.customPortrait': ['Disposition portrait dédiée', 'Separate portrait layout', 'Diseño vertical propio', 'Eigenes Hochformat-Layout'],
+  'ed.portraitShared': ['Le portrait reprend la disposition paysage, deux tuiles par ligne au plus.', 'Portrait reuses the landscape layout, at most two tiles per line.', 'El vertical reutiliza el diseño horizontal, con dos mosaicos por línea como máximo.', 'Hochformat übernimmt das Querformat-Layout, höchstens zwei Kacheln pro Zeile.'],
+  'ed.portraitOwn': ['Disposition propre au portrait : les tuiles d’une rangée y ont la même largeur.', 'Portrait has its own layout: tiles in a row have equal widths there.', 'El vertical tiene su propio diseño: los mosaicos de una fila tienen el mismo ancho.', 'Hochformat hat ein eigenes Layout: Kacheln einer Reihe sind dort gleich breit.'],
+  'ui.pages': ['Pages', 'Pages', 'Páginas', 'Seiten'],
+  'ui.pagesHelp': ['Masquez une page sans la supprimer. Sa disposition se modifie dans l’éditeur sur l’ordinateur.', 'Hide a page without deleting it. Its layout is edited in the editor on the computer.', 'Oculta una página sin eliminarla. Su diseño se edita en el editor del ordenador.', 'Blende eine Seite aus, ohne sie zu löschen. Ihr Layout bearbeitest du im Editor am Computer.'],
+  'err.lastPage': ['Au moins une page doit rester affichée.', 'At least one page must stay shown.', 'Al menos una página debe seguir visible.', 'Mindestens eine Seite muss sichtbar bleiben.'],
+  'err.place': ['Position ou taille de tuile invalide.', 'Invalid tile position or size.', 'Posición o tamaño de mosaico no válido.', 'Ungültige Kachelposition oder -größe.'],
+  'err.overlap': ['Deux tuiles se chevauchent.', 'Two tiles overlap.', 'Dos mosaicos se superponen.', 'Zwei Kacheln überlappen sich.'],
+  'err.cut': ['Cette disposition ne peut pas s’afficher sur le téléphone : alignez les tuiles en colonnes.', 'This layout cannot be shown on the phone: line tiles up in columns.', 'Este diseño no se puede mostrar en el teléfono: alinea los mosaicos en columnas.', 'Dieses Layout kann das Handy nicht anzeigen: richte die Kacheln in Spalten aus.'],
+  'err.portraitWidths': ['En portrait, les colonnes côte à côte doivent avoir la même largeur.', 'In portrait, columns side by side must have equal widths.', 'En vertical, las columnas contiguas deben tener el mismo ancho.', 'Im Hochformat müssen nebeneinanderliegende Spalten gleich breit sein.'],
+  'ed.size': ['Taille', 'Size', 'Tamaño', 'Größe'],
+  'ed.gridHint': ['Glissez une tuile pour la déplacer, tirez son coin pour la redimensionner : elle s’aimante à la grille et les tuiles remontent pour combler les vides.', 'Drag a tile to move it and pull its corner to resize it: it snaps to the grid and tiles rise to fill gaps.', 'Arrastra un mosaico para moverlo y tira de su esquina para redimensionarlo: se ajusta a la cuadrícula y los mosaicos suben para llenar los huecos.', 'Ziehe eine Kachel, um sie zu verschieben, und ihre Ecke, um die Größe zu ändern: sie rastet im Raster ein und Kacheln rücken nach oben.'],
+  'ed.refused': ['Placement refusé : {reason}', 'Placement refused: {reason}', 'Colocación rechazada: {reason}', 'Platzierung abgelehnt: {reason}'],
+  'ed.fitUnits': ['Hauteur : {units} unité(s) sur {max} visibles sans défiler.', 'Height: {units} unit(s) of {max} visible without scrolling.', 'Altura: {units} unidad(es) de {max} visibles sin desplazamiento.', 'Höhe: {units} Einheit(en) von {max} ohne Scrollen sichtbar.'],
+  'ed.portraitAuto': ['Le portrait réorganise la page : colonnes de largeurs différentes empilées, groupes larges sur deux colonnes.', 'Portrait reflows the page: columns of different widths stack, wide groups use two columns.', 'El vertical reorganiza la página: las columnas de distinto ancho se apilan y los grupos anchos usan dos columnas.', 'Hochformat ordnet die Seite neu: unterschiedlich breite Spalten werden gestapelt, breite Gruppen nutzen zwei Spalten.'],
+  'ed.tileHeight': ['Hauteur', 'Height', 'Altura', 'Höhe'],
   'ed.newPage': ['Page {n}', 'Page {n}', 'Página {n}', 'Seite {n}']
 };
 
@@ -265,6 +300,22 @@ function table(prefix, lang = current) {
   return out;
 }
 
+// A message kept as {key, params} so it is translated when shown, not when measured.
+const msg = (key, params) => ({ key, params });
+const say = value => (value && typeof value === 'object' && value.key ? t(value.key, value.params) : value || '');
+
+// Default page names were saved in whatever language was active; show them in the
+// current one. A name the user typed matches no translation and is left alone.
+function pageName(name) {
+  for (const key of ['sys.pageGame', 'sys.pageSystem', 'sys.defaultPage']) if (LANGS.some(l => t(key, null, l) === name)) return t(key);
+  for (const l of LANGS) {
+    const [before, after] = t('sys.page', null, l).split('{n}');
+    const n = name.startsWith(before) && name.endsWith(after) ? name.slice(before.length, name.length - after.length) : '';
+    if (/^[1-9]\d?$/.test(n)) return t('sys.page', { n });
+  }
+  return name;
+}
+
 // Errors carry their key so the message follows the language at the moment it is shown.
 class VitalsError extends Error {
   constructor(key, params) { super(t(key, params)); this.key = key; this.params = params; }
@@ -272,4 +323,4 @@ class VitalsError extends Error {
 
 const languageOptions = () => [{ value: 'auto', label: NAMES.auto[LANGS.indexOf(current)] }, ...LANGS.map(l => ({ value: l, label: NAMES[l] }))];
 
-module.exports = { LANGS, STRINGS: S, EXTRA, resolve, systemLocales, setLanguage, language, t, table, VitalsError, languageOptions };
+module.exports = { LANGS, STRINGS: S, EXTRA, msg, say, pageName, resolve, systemLocales, setLanguage, language, t, table, VitalsError, languageOptions };

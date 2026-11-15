@@ -77,9 +77,9 @@ test('telemetry file failures are readable; missing and oversized files cannot l
   assert.deepEqual(await sensors.external(), { readings: {}, error: '' });
   const file = path.join(dir, 'telemetry.json');
   fs.writeFileSync(file, '{password:secret');
-  assert.match((await sensors.external()).error, /JSON valide/);
+  assert.match(i18n.say((await sensors.external()).error), /JSON valide/);
   fs.writeFileSync(file, 'x'.repeat(65537));
-  assert.match((await sensors.external()).error, /volumineux/);
+  assert.match(i18n.say((await sensors.external()).error), /volumineux/);
   fs.writeFileSync(file, JSON.stringify({ timestamp: Date.now(), fps: 120 }));
   assert.equal((await sensors.external()).readings.fps.value, 120);
 });
@@ -102,7 +102,7 @@ test('app samples real host, caches JSON, persists edits, rejects commands and c
   app.command('saveWidget', widget);
   assert.equal(app.data().widgets[0].visible, true, 'a metric shown on a page stays visible');
   assert.equal(app.data().widgets[0].color, 'blue');
-  assert.equal(app.data().pages[0].rows[0].tiles.length, 3);
+  assert.equal(app.data().pages[0].tiles.length, 6);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'))).widgets[0].size, 'small');
   app.command('move', { id: 'cpu', direction: 1 });
   assert.equal(app.data().widgets[1].id, 'cpu');
@@ -134,45 +134,6 @@ test('write failure retains current settings', t => {
 });
 
 const layout = require('../lib/layout.cjs');
-
-test('default pages validate and bind live values into equal-width rows', () => {
-  const config = model.defaults();
-  assert.deepEqual(layout.validatePages(config.pages), config.pages);
-  const pages = layout.view(config.pages, model.view(config, { fps: { value: 25 } }, {}));
-  assert.equal(pages[0].name, 'Jeu');
-  const fps = pages[0].rows[0].tiles.find(t => t.metric === 'fps');
-  assert.equal(fps.number, '25');
-  assert.equal(fps.status, 'critical');
-  assert.equal(fps.tint, 'red');
-  assert.equal(pages[0].rows[0].columns, pages[0].rows[0].tiles.length);
-});
-
-test('page validation enforces the limits the phone can draw', () => {
-  const ok = model.defaults().pages;
-  const bad = mutate => { const p = JSON.parse(JSON.stringify(ok)); mutate(p); return () => layout.validatePages(p); };
-  assert.throws(bad(p => { p[0].rows[0].tiles.push(...p[0].rows[1].tiles.map(t => ({ ...t, id: t.id + 'x' })), { id: 'zz', metric: 'cpu', display: 'value', color: 'auto' }); }), /entre 1 et 4 tuiles/);
-  assert.throws(bad(p => { p[0].rows[0].height = 'huge'; }), /Hauteur/);
-  assert.throws(bad(p => { p[0].rows[0].tiles[0].metric = 'secret'; }), /tuile invalides/);
-  assert.throws(bad(p => { p[1].id = p[0].id; }), /Identifiant/);
-  assert.throws(bad(p => { p[0].name = ' '; }), /nom/);
-  assert.throws(() => layout.validatePages([]), /entre 1 et 8 pages/);
-});
-
-test('v1 widget lists migrate into pages and keep their order', () => {
-  const old = model.defaults().widgets.map(w => ({ ...w }));
-  old.find(w => w.id === 'load').visible = false;
-  const restored = model.restore({ interval: 2, widgets: old });
-  const metrics = restored.pages.flatMap(p => p.rows.flatMap(r => r.tiles.map(t => t.metric)));
-  assert.deepEqual(metrics, old.filter(w => w.visible).map(w => w.id));
-  assert.equal(restored.pages[0].rows[0].tiles[0].display, 'chart');
-  assert.deepEqual(layout.validatePages(restored.pages), restored.pages);
-  const broken = model.restore({ widgets: old, pages: [{ id: 'x' }] });
-  assert.equal(broken.pages[0].name, 'Jeu');
-});
-
-test('every default page fits a landscape phone without scrolling', () => {
-  for (const page of model.defaults().pages) assert.ok(layout.pageHeight(page) <= layout.FIT.landscape, `${page.name}: ${layout.pageHeight(page)} pt`);
-});
 
 test('only metrics placed on a page are visible and can alert', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-pages-'));
@@ -215,4 +176,134 @@ test('language follows the system, falls back to English and can be chosen', asy
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'))).language, 'en');
   assert.throws(() => app.command('interval', 0), /Choose an interval/);
   assert.throws(() => app.command('language', 'xx'), /Unsupported language/);
+});
+
+test('switching language retranslates readings and default page names at once', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-switch-'));
+  const app = activate({ dataDir: dir });
+  t.after(() => { app.close(); i18n.setLanguage('fr'); fs.rmSync(dir, { recursive: true, force: true }); });
+  const deadline = Date.now() + 4000;
+  while (app.data().loading && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(app.data().widgets.find(w => w.id === 'cpu').source, 'Système');
+  app.command('language', 'de');
+  const data = app.data();
+  assert.equal(data.widgets.find(w => w.id === 'cpu').source, 'System');
+  assert.match(data.widgets.find(w => w.id === 'cpu').detail, /logische Kerne/);
+  assert.deepEqual(data.pages.map(p => p.name), ['Spiel', 'System']);
+  assert.equal(i18n.pageName('ページ 3'), 'Seite 3');
+  assert.equal(i18n.pageName('Mon setup'), 'Mon setup');
+});
+
+test('pages can be hidden and shown again from the phone', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-toggle-'));
+  const app = activate({ dataDir: dir });
+  t.after(() => { app.close(); fs.rmSync(dir, { recursive: true, force: true }); });
+  app.command('pageEnabled', { id: 'hud', enabled: false });
+  assert.deepEqual(app.data().pages.map(p => p.id), ['system']);
+  assert.deepEqual(app.data().pageList.map(p => p.enabled), [false, true]);
+  assert.throws(() => app.command('pageEnabled', { id: 'system', enabled: false }), /au moins une page/i);
+  app.command('togglePage', 'hud');
+  assert.deepEqual(app.data().pages.map(p => p.id), ['hud', 'system']);
+  assert.throws(() => app.command('pageEnabled', { id: 'nope', enabled: true }), /invalide/);
+});
+
+test('the PC settings page offers a button that opens the editor', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-settings-'));
+  let opened = '';
+  const app = activate({ dataDir: dir, electron: { ...french, shell: { openExternal: async url => { opened = url; } } } });
+  t.after(() => { app.close(); fs.rmSync(dir, { recursive: true, force: true }); });
+  const button = app.settings.describe().items.find(i => i.type === 'button');
+  assert.equal(button.action, 'openEditor');
+  assert.equal(button.primary, true);
+  assert.deepEqual(app.settings.action('openEditor', {}), { opened: true });
+  for (let i = 0; i < 40 && !opened; i++) await new Promise(resolve => setTimeout(resolve, 25));
+  assert.match(opened, /^http:\/\/127\.0\.0\.1:\d+\/#[0-9a-f]{48}$/);
+});
+
+const grid = require('../lib/grid.js');
+const T = (id, x, y, w, h, metric = 'cpu') => ({ id, metric, display: 'value', color: 'auto', x, y, w, h });
+const onePage = (tiles, extra = {}) => [{ id: 'p', name: 'P', tiles, ...extra }];
+
+test('the magnet snaps widths, pulls tiles up and pushes overlapped tiles down', () => {
+  assert.deepEqual([5, 7, 10, 1].map(grid.snapWidth), [4, 6, 9, 3]);
+  assert.equal(grid.compact([T('a', 0, 3, 3, 1)])[0].y, 0);
+  const placed = grid.place([T('a', 0, 0, 6, 2), T('b', 6, 0, 6, 2)], T('b', 3, 0, 6, 2));
+  assert.deepEqual(placed.map(t => [t.id, t.x, t.y]), [['a', 0, 2], ['b', 3, 0]]);
+  assert.deepEqual(grid.freeSpot([T('a', 0, 0, 6, 2)], 6, 2), { x: 6, y: 0 });
+  assert.equal(grid.points(4), 276);
+});
+
+test('layouts are cut into bands, column groups and items, and a pinwheel is refused', () => {
+  const game = model.defaults().pages[0].tiles;
+  const cut = grid.decompose(game);
+  assert.ok(cut.ok);
+  assert.equal(cut.bands.length, 1);
+  assert.deepEqual(cut.bands[0].groups.map(g => [g.w, g.columns.length]), [[6, 2]]);
+  assert.deepEqual(cut.bands[0].groups[0].columns[1].items.map(i => i.tiles.map(t => t.metric)), [['cpu', 'gpu'], ['cpuTemp', 'gpuTemp'], ['memory']]);
+  const pinwheel = [T('a', 0, 0, 8, 1), T('b', 8, 0, 4, 2), T('c', 4, 1, 4, 1), T('d', 0, 1, 4, 2), T('e', 4, 2, 8, 1)];
+  assert.equal(grid.decompose(pinwheel).reason, 'nested');
+  assert.equal(grid.decompose([T('a', 0, 0, 6, 1), T('b', 3, 0, 6, 1)]).reason, 'overlap');
+  assert.equal(grid.decompose([T('a', 0, 0, 3, 1), T('b', 3, 0, 9, 1)], { portrait: true }).reason, 'portrait');
+});
+
+test('default pages fit a landscape phone and bind into splits for the phone', () => {
+  const config = model.defaults();
+  for (const page of config.pages) assert.ok(layout.pageHeight(page) <= grid.FIT.landscape, page.name);
+  assert.deepEqual(layout.validatePages(config.pages), config.pages);
+  const pages = layout.view(config.pages, model.view(config, { fps: { value: 25 } }, {}));
+  const fps = pages[0].bands[0].a[0].columns[0].items[0].tiles[0];
+  assert.deepEqual([fps.number, fps.status, fps.tint, fps.h], ['25', 'critical', 'red', 276]);
+  const system = pages[1].bands[0];
+  assert.deepEqual([system.parts, system.ratio], [2, 8 / 12]);
+  assert.equal(pages[1].bands[1].a[0].count, 3);
+  assert.equal(pages[1].portraitBands[1].a[0].portraitCount, 2, 'a reused layout wraps to two columns in portrait');
+});
+
+test('page validation refuses what the phone cannot draw', () => {
+  const bad = tiles => () => layout.validatePages(onePage(tiles));
+  assert.throws(bad([T('a', 0, 0, 5, 1)]), /Position ou taille/);
+  assert.throws(bad([T('a', 10, 0, 3, 1)]), /Position ou taille/);
+  assert.throws(bad([T('a', 0, 0, 6, 1), T('b', 3, 0, 6, 1)]), /chevauchent/);
+  assert.throws(bad([T('a', 0, 0, 8, 1), T('b', 8, 0, 4, 2), T('c', 4, 1, 4, 1), T('d', 0, 1, 4, 2), T('e', 4, 2, 8, 1)]), /colonnes/);
+  assert.throws(bad([{ ...T('a', 0, 0, 3, 1), metric: 'secret' }]), /tuile invalides/);
+  assert.throws(() => layout.validatePages([...onePage([T('a', 0, 0, 3, 1)]), ...onePage([T('b', 0, 0, 3, 1)])]), /Identifiant/);
+  assert.throws(() => layout.validatePages(onePage([T('a', 0, 0, 3, 1)], { portrait: [T('b', 0, 0, 3, 1), T('c', 3, 0, 9, 1)] })), /portrait/);
+  assert.throws(() => layout.validatePages([]), /entre 1 et 8 pages/);
+});
+
+test('rows saved by 1.1–1.3 and widget lists from 1.0 migrate to the grid', () => {
+  const saved = [{ id: 'hud', name: 'Jeu', enabled: false, portrait: null, rows: [
+    { id: 'r1', height: 'l', tiles: [{ id: 'a', metric: 'fps', display: 'value', color: 'auto', span: 2 }, { id: 'b', metric: 'cpu', display: 'gauge', color: 'mint', span: 1 }, { id: 'c', metric: 'gpu', display: 'gauge', color: 'auto', span: 1 }] },
+    { id: 'r2', height: 's', tiles: [{ id: 'd', metric: 'memory', display: 'bar', color: 'auto' }, { id: 'e', metric: 'disk', display: 'bar', color: 'auto' }, { id: 'f', metric: 'load', display: 'value', color: 'auto' }] }
+  ] }, model.defaults().pages[1]];
+  const restored = model.restore({ ...model.defaults(), pages: saved });
+  const hud = restored.pages[0];
+  assert.equal(hud.enabled, false);
+  assert.deepEqual(hud.tiles.map(t => [t.id, t.x, t.y, t.w, t.h]), [['a', 0, 0, 6, 3], ['b', 6, 0, 3, 3], ['c', 9, 0, 3, 3], ['d', 0, 3, 4, 1], ['e', 4, 3, 4, 1], ['f', 8, 3, 4, 1]]);
+  assert.equal(hud.tiles[1].color, 'mint');
+  const old = model.defaults().widgets.map(w => ({ ...w }));
+  old.find(w => w.id === 'load').visible = false;
+  const v1 = model.restore({ interval: 2, widgets: old });
+  assert.deepEqual(v1.pages.flatMap(p => p.tiles.map(t => t.metric)), old.filter(w => w.visible).map(w => w.id));
+  assert.deepEqual(layout.validatePages(v1.pages), v1.pages);
+});
+
+test('pages can be hidden and get a portrait layout of their own', () => {
+  const base = model.defaults().pages;
+  const widgets = model.view(model.defaults(), {}, {});
+  assert.deepEqual(layout.view(layout.validatePages([{ ...base[0], enabled: false }, base[1]]), widgets).map(p => p.id), ['system']);
+  assert.equal(layout.view(layout.validatePages(base.map(p => ({ ...p, enabled: false }))), widgets).length, 1);
+  const own = layout.view(layout.validatePages([{ ...base[0], portrait: [T('pt', 0, 0, 12, 3, 'fps')] }]), widgets)[0];
+  assert.equal(own.portraitBands[0].a[0].columns[0].items[0].tiles[0].metric, 'fps');
+  assert.equal(own.bands[0].a[0].columns[0].items[0].tiles[0].metric, 'fps');
+});
+
+test('the smart magnet finds the nearest layout the phone can draw', () => {
+  const game = model.defaults().pages[0].tiles;
+  const wider = grid.placeNearest(game, { ...game[1], w: 6 }, 'resize');
+  assert.ok(grid.decompose(wider).ok);
+  assert.deepEqual((({ x, y, w }) => [x, y, w])(wider.find(t => t.metric === 'cpu')), [6, 0, 6]);
+  assert.ok(wider.find(t => t.metric === 'gpu').y >= 2, 'the displaced tile moves out of the way');
+  const pinwheelish = grid.placeNearest([T('a', 0, 0, 6, 2), T('b', 6, 0, 6, 1), T('c', 6, 1, 6, 1)], T('a', 3, 1, 6, 2));
+  assert.ok(pinwheelish === null || grid.decompose(pinwheelish).ok);
 });

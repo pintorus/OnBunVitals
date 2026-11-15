@@ -10,7 +10,9 @@ const crypto = require('node:crypto');
 const { t } = require('./i18n.cjs');
 
 const EDITOR_DIR = path.join(__dirname, '..', 'editor');
-const files = { '/': ['index.html', 'text/html; charset=utf-8'], '/editor.js': ['editor.js', 'text/javascript; charset=utf-8'], '/editor.css': ['editor.css', 'text/css; charset=utf-8'] };
+// The editor's own files, plus the grid rules it shares with the app (lib/grid.js).
+const files = { '/': ['index.html', 'text/html; charset=utf-8'], '/editor.js': ['editor.js', 'text/javascript; charset=utf-8'], '/editor.css': ['editor.css', 'text/css; charset=utf-8'],
+  '/grid.js': ['../lib/grid.js', 'text/javascript; charset=utf-8'] };
 
 function createEditorServer({ state, save, language }) {
   const token = crypto.randomBytes(24).toString('hex');

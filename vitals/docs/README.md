@@ -12,26 +12,32 @@ To update, copy the new app files over the installed app. Preferences live separ
 
 ## Pages, tiles and the PC editor
 
-The phone shows one full-screen page at a time; swipe sideways to change page. Each page is a stack of **rows**, and the tiles of a row share its width equally. Pages never scroll: the editor warns when a page is taller than a landscape phone (280 pt under the bar) or a portrait one (600 pt).
+The phone shows one full-screen page at a time; swipe sideways to change page. Tiles are placed freely on a **magnetic grid**: 12 columns, rows of 60 pt, 12 pt gaps.
 
 | Element | Options |
 |---|---|
-| Page | Name (1–24 characters), order. 1 to 8 pages. |
-| Row | Height: Fine (72 pt), Moyenne (124 pt), Haute (176 pt), Très haute (260 pt). 1 to 4 rows per page, 1 to 4 tiles per row. |
-| Tile | Metric, display (Chiffre: large number · Jauge: gauge · Courbe: one-minute chart · Barre: number and bar), color (or the metric's color). |
+| Page | Name (1–24 characters), order, **shown on the phone** or hidden (at least one stays shown), and an optional **portrait layout of its own**. 1 to 8 pages, 1 to 16 tiles each. |
+| Tile size | Width ¼, ⅓, ½, ⅔, ¾ or full; height 1 to 6 units (60 pt to 420 pt). |
+| Tile | Metric, display (Chiffre: number · Jauge: gauge · Courbe: one-minute chart · Barre: number and bar), color (or the metric's color). |
 | Metric | Warning and critical thresholds and default color, shared by every tile that shows it. |
 
-Tiles keep their chosen color and turn orange at the warning threshold and red at the critical one. A metric that sits on no page is not shown, does not count in the alert summary and does not notify.
+**The magnet.** Tiles snap to the grid, never overlap and rise to fill the space above them. Dropping or resizing a tile pushes the tiles in its way; if the result cannot be shown on the phone, the magnet picks the nearest position or size that can, and the preview shows it while you drag.
+
+**What the phone can draw.** The Kit has no free positioning, so each page is cut into horizontal bands, each band into columns (joined with `split`s when their widths differ, a `grid` when they are equal), each column into tiles stacked or side by side. A layout that cannot be cut this way (for example four tiles turning around a centre) is refused by the editor and the app alike.
+
+**Landscape and portrait.** By default portrait reuses the landscape layout: columns of different widths stack, and wide groups use two columns. Turn on **Disposition portrait dédiée** in the editor's portrait view to place tiles separately for portrait; there, columns side by side must have equal widths. The editor shows how many units fit without scrolling (4 in landscape, 8 in portrait) and draws a dashed line where the screen ends.
+
+Settings saved by versions 1.0 to 1.3 (widget lists, then rows of tiles) are converted to the grid on first launch.
 
 ### Opening the editor
 
 The editor runs on the computer, in a window opened by Onbun (Windows, macOS and Linux). Open it from the grid button in the phone's top bar, from **Mesures → Ouvrir l’éditeur de pages** in the phone settings, or from the Vitals card on the island. It shows live values in a phone-shaped preview, in landscape or portrait.
 
-Click a row or a tile to edit it on the right. Drag a tile onto another row to move it, or onto a tile to swap them. Delete removes the selected tile and Escape clears the selection. **Envoyer au téléphone** (Ctrl/⌘+S) validates and saves the layout; the phone updates on its next refresh. **Annuler** discards unsent changes. Closing the window discards them too.
+Click a tile to edit it on the right. Drag a tile to move it and its bottom-right corner to resize it, or use **Largeur** and **Hauteur** in the tile panel. With a tile selected, the arrow keys move it and Shift + arrows resize it. **＋ Tuile** adds a tile in the first free spot. The **Affichée sur le téléphone** box hides or shows the page. Delete removes the selected tile and Escape clears the selection. **Envoyer au téléphone** (Ctrl/⌘+S) validates and saves the layout; the phone updates on its next refresh. **Annuler** discards unsent changes. Closing the window discards them too.
 
 The editor is served by the app on `127.0.0.1` only, on a random port, and every API call needs a random token that is generated at launch and passed in the URL fragment. Other hosts are refused.
 
-On the phone, the settings sheet still edits each metric's thresholds and color.
+On the phone, the settings sheet edits each metric's thresholds and color, and its **Pages** section shows or hides each page (at least one stays shown).
 
 ### Languages
 
@@ -197,6 +203,7 @@ Pages are saved by the PC editor through `PUT /api/layout` (`{pages, widgets}`),
 | `interval` | Number `1`, `2` or `5` (seconds). |
 | `notifications` | Boolean. |
 | `refresh` | No value required; requests background collection. |
+| `togglePage` | A page id; shows a hidden page or hides a shown one. |
 | `language` | `auto` or a language code: `fr`, `en`, `es`, `de`, `zh`, `ja`. |
 | `openEditor` | No value required; opens the PC page editor and returns `{ "opened": true }`. |
 

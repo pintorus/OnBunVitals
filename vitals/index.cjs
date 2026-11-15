@@ -6,7 +6,7 @@ const path = require('node:path');
 const model = require('./lib/model.cjs');
 const layout = require('./lib/layout.cjs');
 const i18n = require('./lib/i18n.cjs');
-const { t, VitalsError } = i18n;
+const { t, msg, VitalsError } = i18n;
 const { createEditorServer } = require('./lib/editor-server.cjs');
 const { cpuSnapshot, cpuUsage, createSensors } = require('./lib/sensors.cjs');
 
@@ -26,8 +26,9 @@ function activate(ctx) {
   const alarmStates = new Map(), notifiedAt = new Map();
   let editorWindow, editorUrl = '';
   const editor = createEditorServer({
-    state: () => ({ revision: cache.revision, interval: config.interval, pages: config.pages, widgets: cache.widgets.map(({ history, ...w }) => w),
-      colors: model.colors, displays: layout.displays, heights: layout.heights, limits: layout.LIMITS, fit: layout.FIT, spacing: layout.SPACING,
+    state: () => ({ revision: cache.revision, interval: config.interval, pages: config.pages.map(p => ({ ...p, name: i18n.pageName(p.name) })), widgets: cache.widgets.map(({ history, ...w }) => w),
+      colors: model.colors, displays: layout.displays, limits: layout.LIMITS,
+      errors: { overlap: t('err.overlap'), cut: t('err.cut'), portraitWidths: t('err.portraitWidths') },
       language: config.language, lang: i18n.language(), languages: i18n.languageOptions(), t: i18n.table('ed'), colorNames: i18n.table('color') }),
     language(value) { setLanguage(value); save(config); },
     save(value) {
@@ -55,22 +56,23 @@ function activate(ctx) {
 
   function rebuild() {
     // A metric is shown (and may alert) when at least one tile of a page displays it.
-    const onPage = new Set(config.pages.flatMap(p => p.rows.flatMap(r => r.tiles.map(t => t.metric))));
+    const onPage = new Set(config.pages.flatMap(p => [...p.tiles, ...(p.portrait || [])].map(t => t.metric)));
     const widgets = model.view(config, readings, histories).map(w => ({ ...w, visible: onPage.has(w.id) }));
     const alerts = widgets.filter(w => w.visible && ['warning', 'critical'].includes(w.status));
     cache = {
-      revision: ++revision, loading: !started, refreshing, error: [configError && t(configError), error, telemetryError].filter(Boolean).join(' '),
+      revision: ++revision, loading: !started, refreshing, error: [configError && t(configError), i18n.say(error), i18n.say(telemetryError)].filter(Boolean).join(' '),
       host: os.hostname(), system: t('sys.cores', { os: { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform] || os.type(), cores: os.cpus().length }),
       cpuModel: os.cpus()[0]?.model || t('metric.cpu'), uptime: Math.floor(os.uptime()), sampledAt,
       interval: config.interval, notifications: config.notifications, widgets, alerts,
-      pages: layout.view(config.pages, widgets), pageCount: config.pages.length, editorUrl,
+      pages: layout.view(config.pages, widgets), pageCount: config.pages.length,
+      pageList: config.pages.map(p => ({ id: p.id, name: i18n.pageName(p.name), enabled: p.enabled !== false })), editorUrl,
       visibleCount: widgets.filter(w => w.visible).length,
       status: alerts.length === 1 ? t('sys.alertsOne') : alerts.length ? t('sys.alertsMany', { count: alerts.length }) : t('sys.ok'),
       statusTint: alerts.some(w => w.status === 'critical') ? 'red' : alerts.length ? 'orange' : 'mint',
       availableCount: widgets.filter(w => w.available).length,
       historyLabel: t('sys.history'), intervalText: t('ui.everySeconds', { s: config.interval }), availableText: t('sys.available', { count: widgets.filter(w => w.available).length, total: widgets.length }),
       t: i18n.table('ui'), colorNames: i18n.table('color'), language: config.language, languages: i18n.languageOptions(),
-      telemetryConnected: Object.values(readings).some(r => r.source === t('src.telemetry'))
+      telemetryConnected: Object.values(readings).some(r => r.source?.key === 'src.telemetry')
     };
     if (!closed) for (const w of widgets) {
       const prior = alarmStates.get(w.id);
@@ -92,16 +94,16 @@ function activate(ctx) {
       const now = Date.now();
       const old = now - slowTime > 15000;
       readings = { ...(old ? {} : slowReadings), ...external.readings,
-        cpu: { value: cpu, source: t('src.system'), detail: t('det.cpu', { cores: os.cpus().length }) }, memory };
-      if (process.platform !== 'win32') readings.load = { value: os.loadavg()[0] / Math.max(1, os.cpus().length) * 100, source: t('src.system'), detail: t('det.load') };
+        cpu: { value: cpu, source: msg('src.system'), detail: msg('det.cpu', { cores: os.cpus().length }) }, memory };
+      if (process.platform !== 'win32') readings.load = { value: os.loadavg()[0] / Math.max(1, os.cpus().length) * 100, source: msg('src.system'), detail: msg('det.load') };
       for (const d of model.definitions) {
-        if (!readings[d.id]) readings[d.id] = { value: null, source: '', detail: t(d.id === 'fps' ? 'det.fpsMissing' : d.id === 'load' ? 'det.loadWindows' : 'det.missing') };
+        if (!readings[d.id]) readings[d.id] = { value: null, source: '', detail: msg(d.id === 'fps' ? 'det.fpsMissing' : d.id === 'load' ? 'det.loadWindows' : 'det.missing') };
         const history = (histories[d.id] || []).filter(p => p.x >= now / 1000 - 60);
         // Split on missing readings rather than drawing a line across a sensor outage.
         histories[d.id] = Number.isFinite(readings[d.id].value) ? [...history, { x: now / 1000, y: readings[d.id].value }].slice(-120) : [];
       }
       telemetryError = external.error; sampledAt = now; started = true;
-    } catch { error = t('err.sampleFailed'); readings = {}; histories = {}; }
+    } catch { error = msg('err.sampleFailed'); readings = {}; histories = {}; }
     finally { sampling = false; if (!closed) { rebuild(); timer = setTimeout(sample, config.interval * 1000); timer.unref?.(); } }
   }
 
@@ -112,7 +114,7 @@ function activate(ctx) {
       const result = await sensors.slow();
       if (closed) return;
       slowReadings = result.readings; slowTime = Date.now(); error = result.error;
-    } catch { if (!closed) error = t('err.hardware'); }
+    } catch { if (!closed) error = msg('err.hardware'); }
     finally { slowBusy = false; refreshing = false; if (!closed) { rebuild(); slowTimer = setTimeout(slowSample, 5000); slowTimer.unref?.(); } }
   }
 
@@ -157,6 +159,15 @@ function activate(ctx) {
       } else if (action === 'language') {
         setLanguage(value);
         save(config);
+      } else if (action === 'togglePage' || action === 'pageEnabled') {
+        // togglePage: the phone sends a page id. pageEnabled: {id, enabled} for an explicit state.
+        const id = action === 'togglePage' ? value : value?.id;
+        const page = config.pages.find(p => p.id === id);
+        const enabled = action === 'togglePage' ? page?.enabled === false : value?.enabled;
+        if (!page || typeof enabled !== 'boolean') throw new VitalsError('err.setting');
+        const pages = config.pages.map(p => (p.id === id ? { ...p, enabled } : p));
+        if (!pages.some(p => p.enabled !== false)) throw new VitalsError('err.lastPage');
+        save({ ...config, pages });
       } else if (action === 'openEditor') {
         openEditor().catch(e => { ctx.log?.warn?.('Page editor:', e.message); });
         return { opened: true };
@@ -174,6 +185,7 @@ function activate(ctx) {
     },
     settings: {
       describe() { return { status: { label: cache.status, tone: cache.alerts.length ? 'warning' : 'success' }, items: [
+        { type: 'button', label: t('island.openEditor'), action: 'openEditor', primary: true },
         { type: 'text', text: t('pc.intro') },
         ...(editorUrl ? [{ type: 'text', text: t('pc.editorAt', { url: editorUrl.split('#')[0] }) }] : []),
         { type: 'note', text: t('pc.sources') },
@@ -182,6 +194,7 @@ function activate(ctx) {
         { type: 'toggle', label: t('pc.alerts'), value: config.notifications, action: 'notifications' }
       ] }; },
       action(action, values) {
+        if (action === 'openEditor') { openEditor().catch(e => ctx.log?.warn?.('Page editor:', e.message)); return { opened: true }; }
         if (action !== 'notifications' || typeof values?.on !== 'boolean') throw new VitalsError('err.setting');
         save({ ...config, notifications: values.on });
         return { saved: true };

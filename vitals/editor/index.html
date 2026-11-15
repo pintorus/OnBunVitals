@@ -25,6 +25,7 @@
         <label><span data-i18n="page"></span> <input id="pageName" maxlength="24" spellcheck="false"></label>
         <button id="pageLeft" class="ghost" data-i18n-title="pageLeft">◀</button>
         <button id="pageRight" class="ghost" data-i18n-title="pageRight">▶</button>
+        <label class="switch"><input type="checkbox" id="pageEnabled"><span data-i18n="enabled"></span></label>
         <button id="pageDelete" class="ghost danger" data-i18n="deletePage"></button>
         <div class="spacer"></div>
         <div class="seg" id="orientation" role="radiogroup">
@@ -34,11 +35,15 @@
       <div class="phone-wrap">
         <div id="phone" class="phone landscape">
           <div class="rail"></div>
-          <div id="screen" class="screen"></div>
+          <div id="screen" class="screen"><div id="board" class="board"></div></div>
         </div>
       </div>
+      <div class="portrait-bar" id="portraitBar">
+        <label class="switch"><input type="checkbox" id="portraitOwn"><span data-i18n="customPortrait"></span></label>
+        <span id="portraitNote" class="note"></span>
+      </div>
       <p id="fit" class="fit"></p>
-      <button id="addRow" class="ghost wide" data-i18n="addRow"></button>
+      <button id="addTile" class="ghost wide" data-i18n="addTile"></button>
     </section>
 
     <aside class="inspector" id="inspector"></aside>
@@ -46,14 +51,9 @@
 
   <template id="hint">
     <h2 data-i18n="hintTitle"></h2>
-    <ol class="hint">
-      <li data-i18n="hint1"></li>
-      <li data-i18n="hint2"></li>
-      <li data-i18n="hint3"></li>
-      <li data-i18n="hint4"></li>
-      <li data-i18n="hint5"></li>
-    </ol>
+    <p class="note" data-i18n="gridHint"></p>
   </template>
+  <script src="grid.js"></script>
   <script src="editor.js"></script>
 </body>
 </html>

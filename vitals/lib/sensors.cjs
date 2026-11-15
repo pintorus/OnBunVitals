@@ -4,7 +4,7 @@ const os = require('node:os');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
-const { t, VitalsError } = require('./i18n.cjs');
+const { t, msg, VitalsError } = require('./i18n.cjs');
 
 function cpuSnapshot() {
   return os.cpus().map(c => ({ idle: c.times.idle, total: Object.values(c.times).reduce((a, b) => a + b, 0) }));
@@ -33,7 +33,7 @@ function telemetry(raw, now = Date.now()) {
     const value = raw[key];
     if (value === undefined || value === null) continue;
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max) throw new VitalsError('err.telemetryValue', { key });
-    result[key] = { value, source: t('src.telemetry'), detail: t(key === 'fps' ? 'det.telemetryFps' : 'det.telemetry') };
+    result[key] = { value, source: msg('src.telemetry'), detail: msg(key === 'fps' ? 'det.telemetryFps' : 'det.telemetry') };
   }
   return result;
 }
@@ -64,7 +64,7 @@ function createSensors(dataDir) {
     }
     const used = Math.max(0, total - available);
     const gb = n => (n / 1024 ** 3).toFixed(1);
-    return { value: total > 0 ? 100 * used / total : null, source: t('src.system'), detail: t(process.platform === 'darwin' ? 'det.memoryCache' : 'det.memory', { used: gb(used), total: gb(total) }) };
+    return { value: total > 0 ? 100 * used / total : null, source: msg('src.system'), detail: msg(process.platform === 'darwin' ? 'det.memoryCache' : 'det.memory', { used: gb(used), total: gb(total) }) };
   }
 
   async function disk() {
@@ -84,7 +84,7 @@ function createSensors(dataDir) {
       }
     }
     if (!(total > 0) || !Number.isFinite(free)) throw new Error('Espace disque inaccessible.');
-    return { value: Math.max(0, Math.min(100, 100 * (1 - free / total))), source: t('src.volume'), detail: t('det.disk', { free: (free / 1024 ** 3).toFixed(1), total: (total / 1024 ** 3).toFixed(0) }) };
+    return { value: Math.max(0, Math.min(100, 100 * (1 - free / total))), source: msg('src.volume'), detail: msg('det.disk', { free: (free / 1024 ** 3).toFixed(1), total: (total / 1024 ** 3).toFixed(0) }) };
   }
 
   async function linuxTemperature() {
@@ -101,7 +101,7 @@ function createSensors(dataDir) {
         if (value > 0 && value <= 150) candidates.push(value);
       }
     }
-    return candidates.length ? { cpuTemp: { value: Math.max(...candidates), source: t('src.linuxSensors'), detail: t('det.cpuTempLinux') } } : {};
+    return candidates.length ? { cpuTemp: { value: Math.max(...candidates), source: msg('src.linuxSensors'), detail: msg('det.cpuTempLinux') } } : {};
   }
 
   async function nvidia() {
@@ -110,8 +110,8 @@ function createSensors(dataDir) {
       const text = await run('nvidia-smi', ['--query-gpu=utilization.gpu,temperature.gpu', '--format=csv,noheader,nounits']);
       const [gpu, temp] = text.trim().split('\n')[0].split(',').map(v => /^\d+(\.\d+)?$/.test(v.trim()) ? Number(v) : null);
       const result = {};
-      if (gpu !== null && gpu >= 0 && gpu <= 100) result.gpu = { value: gpu, source: 'NVIDIA SMI', detail: t('det.nvidiaGpu') };
-      if (temp !== null && temp >= 0 && temp <= 150) result.gpuTemp = { value: temp, source: 'NVIDIA SMI', detail: t('det.nvidiaTemp') };
+      if (gpu !== null && gpu >= 0 && gpu <= 100) result.gpu = { value: gpu, source: 'NVIDIA SMI', detail: msg('det.nvidiaGpu') };
+      if (temp !== null && temp >= 0 && temp <= 150) result.gpuTemp = { value: temp, source: 'NVIDIA SMI', detail: msg('det.nvidiaTemp') };
       return result;
     } catch { nextNvidia = Date.now() + 60000; return {}; }
   }
@@ -125,13 +125,13 @@ function createSensors(dataDir) {
       const raw = (await readSmall(path.join(device, 'gpu_busy_percent')).catch(() => '')).trim();
       const value = raw ? Number(raw) : NaN;
       if (!Number.isFinite(value) || value < 0 || value > 100) continue;
-      result.gpu = { value, source: t('src.linuxGpu'), detail: t('det.linuxGpu') };
+      result.gpu = { value, source: msg('src.linuxGpu'), detail: msg('det.linuxGpu') };
       const hwmon = path.join(device, 'hwmon');
       for (const entry of await fs.readdir(hwmon).catch(() => [])) {
         const dir = path.join(hwmon, entry);
         if ((await readSmall(path.join(dir, 'name')).catch(() => '')).trim() !== 'amdgpu') continue;
         const temp = Number((await readSmall(path.join(dir, 'temp1_input')).catch(() => '')).trim()) / 1000;
-        if (temp > 0 && temp <= 150) result.gpuTemp = { value: temp, source: 'AMD Linux', detail: t('det.amdTemp') };
+        if (temp > 0 && temp <= 150) result.gpuTemp = { value: temp, source: 'AMD Linux', detail: msg('det.amdTemp') };
       }
       break;
     }
@@ -154,7 +154,7 @@ function createSensors(dataDir) {
         if (sensor?.SensorType === 'Load' && /gpu/i.test(id) && /core/i.test(name)) key = 'gpu';
         const value = sensor?.Value;
         if (key && typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= (key === 'gpu' ? 100 : 150)) {
-          if (!result[key] || value > result[key].value) result[key] = { value, source: 'Libre Hardware Monitor', detail: t('det.lhm') };
+          if (!result[key] || value > result[key].value) result[key] = { value, source: 'Libre Hardware Monitor', detail: msg('det.lhm') };
         }
       }
       return result;
@@ -168,12 +168,12 @@ function createSensors(dataDir) {
       const readings = {};
       if (diskResult.status === 'fulfilled') readings.disk = diskResult.value;
       for (const r of [linux, gpu, windows, nv]) if (r.status === 'fulfilled') Object.assign(readings, r.value);
-      return { readings, error: diskResult.status === 'rejected' ? t('err.volume') : '' };
+      return { readings, error: diskResult.status === 'rejected' ? msg('err.volume') : '' };
     },
     async external() {
       try { return { readings: telemetry(JSON.parse(await readSmall(path.join(dataDir, 'telemetry.json')))), error: '' }; }
       catch (e) {
-        return { readings: {}, error: e.code === 'ENOENT' ? '' : e instanceof SyntaxError ? t('err.telemetryJson') : e.code ? t('err.telemetryAccess') : e.message };
+        return { readings: {}, error: e.code === 'ENOENT' ? '' : e instanceof SyntaxError ? msg('err.telemetryJson') : e.code ? msg('err.telemetryAccess') : e.key ? msg(e.key, e.params) : e.message };
       }
     },
     close() { closed = true; for (const child of children) child.kill(); children.clear(); }
