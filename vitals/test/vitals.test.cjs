@@ -12,7 +12,7 @@ const i18n = require('../lib/i18n.cjs');
 
 // The app follows the computer's language; tests pin French unless they say otherwise.
 const french = { app: { getPreferredSystemLanguages: () => ['fr-FR'] } };
-const activate = ctx => start({ electron: french, ...ctx });
+const activate = ctx => start({ electron: french, fps: { sample: () => ({ readings: {}, error: '', detail: null }), close() {} }, ...ctx });
 i18n.setLanguage('fr');
 
 test('CPU deltas distinguish idle, busy, hotplug and unchanged counters', () => {

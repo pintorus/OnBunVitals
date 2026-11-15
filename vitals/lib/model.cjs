@@ -16,7 +16,8 @@ const colors = ['mint', 'cyan', 'teal', 'blue', 'indigo', 'purple', 'pink', 'gre
 const defaultWidgets = () => definitions.map(d => ({ id: d.id, visible: d.visible !== false, size: d.size || 'medium', color: d.color, warning: d.warning, critical: d.critical }));
 // The layout module needs `definitions`, so it is loaded lazily to avoid a require cycle.
 const layout = () => require('./layout.cjs');
-const defaults = () => ({ version: 2, language: 'auto', interval: 2, notifications: false, widgets: defaultWidgets(), pages: layout().defaultPages() });
+const defaults = () => ({ version: 2, language: 'auto', interval: 2, notifications: false, fpsEnabled: false,
+  islandEnabled: true, islandDisplay: 'system', widgets: defaultWidgets(), pages: layout().defaultPages() });
 
 function validateWidget(value) {
   const d = definitions.find(d => d.id === value?.id);
@@ -33,6 +34,9 @@ function restore(raw) {
   if (!raw || typeof raw !== 'object') return config;
   if ([1, 2, 5].includes(raw.interval)) config.interval = raw.interval;
   if (typeof raw.notifications === 'boolean') config.notifications = raw.notifications;
+  if (typeof raw.fpsEnabled === 'boolean') config.fpsEnabled = raw.fpsEnabled;
+  if (typeof raw.islandEnabled === 'boolean') config.islandEnabled = raw.islandEnabled;
+  if (['system', 'fps'].includes(raw.islandDisplay)) config.islandDisplay = raw.islandDisplay;
   if (raw.language === 'auto' || require('./i18n.cjs').LANGS.includes(raw.language)) config.language = raw.language;
   if (Array.isArray(raw.widgets)) {
     const found = new Map();

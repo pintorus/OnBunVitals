@@ -122,7 +122,7 @@ function view(pages, widgets) {
     const narrow = share <= 1 / 3 || (compact && share <= 0.5);
     const name = narrow && w.name === t(`metric.${x.metric}`) ? t(`short.${x.metric}`) : w.name;
     return { id: x.id, metric: x.metric, display: x.display, name, symbol: w.symbol, value: w.value, available: w.available,
-      number: w.value === null ? '—' : String(Math.round(w.value)), unit: w.unit, displayText: w.display,
+      number: w.value === null ? '—' : String(Math.round(w.value)), unit: w.unit, displayText: w.display, hint: w.hint || '',
       status: w.status, alert: w.status === 'warning' || w.status === 'critical', statusLabel: w.statusLabel, tint, max: w.max,
       ratio: w.value === null ? 0 : Math.max(0, Math.min(1, w.value / w.max)), history: w.history,
       showChart: x.display === 'chart' && w.history.length > 1 && h >= 100, h,

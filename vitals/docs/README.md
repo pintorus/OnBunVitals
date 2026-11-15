@@ -10,6 +10,20 @@ Open **Onbun island → Settings → Apps → Open folder**, then copy the compl
 
 To update, copy the new app files over the installed app. Preferences live separately in Onbun’s private app-data directory, so replacing the app files preserves them. Reloading the app clears its in-memory history.
 
+## Island controls
+
+Desktop Vitals settings include three persistent toggles:
+
+| Setting | Default | Behavior |
+| --- | --- | --- |
+| Show Vitals on the island | On | Returns no Vitals island part when disabled. Other apps and phone pages are unaffected. Existing Vitals threshold notices are cleared and new ones are suppressed while hidden. |
+| Show FPS on the island | Off | CPU/RAM appears in the compact pill and expanded subtitle by default. Turning this on displays FPS in both. Missing FPS shows a dash and setup guidance in the expanded footer. This setting never invokes setup or changes FPS opt-in. |
+| Threshold notifications | Off | Uses the existing `notifications` preference. Controls threshold notices, island warning emphasis and the threshold footer. Disabling it clears earlier `vitals-<metric>` notices. Metric values and phone threshold colors remain available. |
+
+`islandEnabled` (boolean) and `islandDisplay` (`system` or `fps`) are stored with the other settings. Invalid or absent saved values restore the defaults. Desktop actions `islandEnabled`, `islandFps` and `notifications` require `{on: boolean}`. The existing phone notifications command also clears old threshold notices when disabled.
+
+An island selected to display FPS refreshes the FPS lease itself, so an already enabled collector works without a phone open or an FPS tile on a phone page. CPU/RAM mode never requests FPS by itself. Hiding Vitals or returning to CPU/RAM stops the native client immediately if the phone is not requesting FPS. Telemetry remains first priority in every mode.
+
 ## Pages, tiles and the PC editor
 
 The phone shows one full-screen page at a time; swipe sideways to change page. Tiles are placed freely on a **magnetic grid**: 12 columns, rows of 60 pt, 12 pt gaps.
@@ -77,11 +91,26 @@ The desktop island shows a CPU summary or a threshold alert. Its expanded card s
 | Linux CPU temperature | Maximum valid reading from recognized `coretemp`, `k10temp`, `zenpower`, `cpu_thermal` or `soc_thermal` hwmon devices. |
 | Windows additional sensors | An already-running Libre Hardware Monitor WMI provider at `root/LibreHardwareMonitor`. Uses CPU temperatures and GPU Core temperature/load sensors; the maximum matching value is selected. |
 | macOS temperatures and other unsupported GPU readings | Local telemetry. No direct Apple hardware sensor integration is included. |
-| FPS | Local telemetry from a game, frame-capture tool or an adapter. Monitor refresh rate is not used as FPS. |
+| FPS on Windows x64 / ARM64 with x64 emulation | Optional Onbun FPS collector uses PresentMon 2.6.0 for the active window (DirectX, OpenGL and Vulkan). Off by default; user-approved setup installs a demand-start LocalService component. Onbun and installed apps stay unelevated. Explicit telemetry FPS takes priority. |
+| FPS on macOS / Linux / other systems | Local telemetry from a game, frame-capture tool or an adapter. No automatic collector or foreground-window helper starts on these systems. |
 
 Automatic sensor precedence, from lower to higher, is Linux hwmon/DRM, Libre Hardware Monitor, then NVIDIA SMI. A valid local telemetry field overrides the corresponding automatic field. Multi-GPU device selection is not exposed in the editor.
 
-External processes have a 3.5-second timeout and a bounded output buffer. Failed NVIDIA or WMI sources are retried after 60 seconds. Other metrics continue working. Vitals does not request administrator privileges, install drivers or bundle Libre Hardware Monitor, PresentMon, RTSS or MangoHud.
+Hardware queries have a 3.5-second timeout and a bounded output buffer. Failed NVIDIA or WMI sources are retried after 60 seconds. Other metrics continue working. Vitals never elevates Onbun, changes the user's group memberships, installs drivers or bundles Libre Hardware Monitor, RTSS or MangoHud.
+
+### Automatic FPS on Windows
+
+Automatic collection is disabled by default, including when upgrading from 1.5. Opening Vitals displays **Enable FPS in Onbun island settings** in an unavailable FPS tile. An existing telemetry reading displays normally without setup. The **Enable FPS** action exists only in Windows desktop settings; a phone command cannot trigger installation.
+
+The explicit desktop action requests Windows approval for `bin/OnbunFpsSetup.exe`, a native installer with embedded, hash-verified collector/PresentMon payloads. It accepts no arbitrary program, script, destination or service argument. It installs `OnbunFpsCollector` under `%ProgramFiles%\Onbun FPS Collector`, with a protected directory ACL and the limited `NT AUTHORITY\LocalService` account. Only traversal and client-impersonation privileges are retained. Interactive users can query/start this fixed service; they cannot reconfigure it or choose an executable. No account group membership is modified. Setup does not start capture. Cancellation or failure leaves opt-in disabled. Existing installed collectors are reused.
+
+After opt-in, a small normal-privilege native client runs while a recently viewed phone dashboard needs FPS or the visible Vitals island is configured to show FPS, and telemetry does not provide FPS. It polls the foreground PID once per second and connects to a local named pipe. The service rejects network logons, checks the requesting user's ownership of the target process under impersonation, and accepts only a bounded numeric PID. It cannot execute commands supplied by apps. Requests and reads have short deadlines, two pipe workers are used, and target changes are rate limited. A live capture cannot be replaced by another account's requests. No network listener is opened.
+
+The service starts on demand, stops after 15–20 seconds without requests, and is not started at Windows boot. It launches only its protected PresentMon binary, for one authorized foreground PID, without GPU/display/input timing collection. PresentMon streams CSV in private 60-second sessions; no frame log is written to disk. Each swap chain retains eight 250-ms aggregate buckets instead of individual frames. An approximately two-second moving average uses the busiest chain, never a sum of unrelated chains. Missing/stale data is unavailable rather than a fake zero. Disabling FPS stops the normal client immediately, then the service times out. The installed component can be removed with `bin/OnbunFpsSetup.exe --uninstall` (Windows approval required).
+
+Keep the game window active. Protected games and unusual graphics paths may not expose usable events. This is presentation FPS, not monitor refresh rate or a guarantee of displayed/generated frame counts. macOS, Linux and unsupported architectures use telemetry without running any of these components.
+
+Native code and build instructions accompany the working copy in `../collector`. The build uses Onbun's Windows signing configuration and supports required signing for production. The current local build is unsigned. Tests cover native aggregation, pipe ACLs and impersonation plus opt-in/denial flows; actual service installation and live LocalService capture are not yet verified. See `bin/README.md` for the pinned PresentMon provenance and payload hashes.
 
 ## Local telemetry integration
 
@@ -160,7 +189,7 @@ Private runtime files are separate:
 
 | File | Purpose |
 | --- | --- |
-| `ctx.dataDir/settings.json` | Language, pages, rows and tiles, metric colors and thresholds, sampling interval and notification preference. |
+| `ctx.dataDir/settings.json` | Language, pages, rows and tiles, metric colors and thresholds, sampling interval, notifications, `islandEnabled`, `islandDisplay` and `fpsEnabled` (false by default). |
 | `ctx.dataDir/settings.json.tmp` | Temporary file used for atomic preference writes. |
 | `ctx.dataDir/telemetry.json` | Optional payload written by your external telemetry publisher. |
 
@@ -178,7 +207,8 @@ If preferences cannot be read, defaults are used and a warning is shown. The nex
 | A sensor says Indisponible | Check its source in Settings → Capteurs. Unsupported hardware is expected to show this state. |
 | NVIDIA readings are unavailable | Ensure `nvidia-smi` is accessible to the Onbun process. After correcting the environment, allow the 60-second retry delay or reload the app. |
 | Windows temperature/GPU data are missing | Confirm Libre Hardware Monitor is running and its WMI provider is accessible. The CPU and memory widgets do not require it. |
-| FPS stays unavailable | Connect an actual measurement publisher. Confirm its destination, current millisecond timestamp and numeric `fps` field. |
+| FPS stays unavailable on Windows | Keep the game window active. Check the FPS detail/PC settings for capture permissions, then Refresh after correcting them. A local telemetry publisher can also supply FPS. |
+| FPS stays unavailable on macOS/Linux | Connect an actual measurement publisher. Confirm its destination, current millisecond timestamp and numeric `fps` field. |
 | Telemetry works and then disappears | Check that publishing continues every 1–5 seconds; external data expires after 10 seconds. |
 | Threshold edits fail | Critical must be above warning for normal metrics and below warning for FPS. |
 | Settings cannot be saved | Check write access to the app’s private data directory and available disk space. |

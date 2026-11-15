@@ -9,6 +9,7 @@ const i18n = require('./lib/i18n.cjs');
 const { t, msg, VitalsError } = i18n;
 const { createEditorServer } = require('./lib/editor-server.cjs');
 const { cpuSnapshot, cpuUsage, createSensors } = require('./lib/sensors.cjs');
+const { createFps } = require('./lib/fps.cjs');
 
 function activate(ctx) {
   const configPath = path.join(ctx.dataDir, 'settings.json');
@@ -20,9 +21,11 @@ function activate(ctx) {
   applyLanguage(raw?.language);
   let config = model.restore(raw);
   const sensors = createSensors(ctx.dataDir);
+  const fps = ctx.fps || createFps();
+  let lastViewed = 0, lastIslandViewed = 0, enablePending = null, fpsSetupMessage = null;
   let previous = cpuSnapshot(), readings = {}, slowReadings = {}, slowTime = 0;
   let histories = {}, cache, revision = 0, timer, slowTimer, closed = false, sampling = false, slowBusy = false;
-  let started = false, refreshing = true, error = '', telemetryError = '', sampledAt = 0;
+  let started = false, refreshing = true, error = '', telemetryError = '', fpsError = '', fpsDetail = null, sampledAt = 0;
   const alarmStates = new Map(), notifiedAt = new Map();
   let editorWindow, editorUrl = '';
   const editor = createEditorServer({
@@ -57,13 +60,16 @@ function activate(ctx) {
   function rebuild() {
     // A metric is shown (and may alert) when at least one tile of a page displays it.
     const onPage = new Set(config.pages.flatMap(p => [...p.tiles, ...(p.portrait || [])].map(t => t.metric)));
-    const widgets = model.view(config, readings, histories).map(w => ({ ...w, visible: onPage.has(w.id) }));
+    const widgets = model.view(config, readings, histories).map(w => ({ ...w, visible: onPage.has(w.id),
+      hint: w.id === 'fps' && !w.available && fps.available && (!config.fpsEnabled || !fps.installed()) ? t('det.fpsEnable') : '' }));
     const alerts = widgets.filter(w => w.visible && ['warning', 'critical'].includes(w.status));
     cache = {
-      revision: ++revision, loading: !started, refreshing, error: [configError && t(configError), i18n.say(error), i18n.say(telemetryError)].filter(Boolean).join(' '),
+      revision: ++revision, loading: !started, refreshing, error: [configError && t(configError), i18n.say(error), i18n.say(telemetryError), i18n.say(fpsError)].filter(Boolean).join(' '),
+      fpsStatus: i18n.say(fpsDetail),
+      fpsEnabled: config.fpsEnabled, fpsSetupMessage: i18n.say(fpsSetupMessage),
       host: os.hostname(), system: t('sys.cores', { os: { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform] || os.type(), cores: os.cpus().length }),
       cpuModel: os.cpus()[0]?.model || t('metric.cpu'), uptime: Math.floor(os.uptime()), sampledAt,
-      interval: config.interval, notifications: config.notifications, widgets, alerts,
+      interval: config.interval, notifications: config.notifications, islandEnabled: config.islandEnabled, islandDisplay: config.islandDisplay, widgets, alerts,
       pages: layout.view(config.pages, widgets), pageCount: config.pages.length,
       pageList: config.pages.map(p => ({ id: p.id, name: i18n.pageName(p.name), enabled: p.enabled !== false })), editorUrl,
       visibleCount: widgets.filter(w => w.visible).length,
@@ -76,7 +82,7 @@ function activate(ctx) {
     };
     if (!closed) for (const w of widgets) {
       const prior = alarmStates.get(w.id);
-      if (config.notifications && w.visible && w.status === 'critical' && prior !== 'critical' && Date.now() - (notifiedAt.get(w.id) || 0) > 60000) {
+      if (config.notifications && config.islandEnabled && w.visible && w.status === 'critical' && prior !== 'critical' && Date.now() - (notifiedAt.get(w.id) || 0) > 60000) {
         try { ctx.notifications?.post({ id: `vitals-${w.id}`, title: t('sys.criticalTitle', { name: w.name }), body: `${w.display} · ${w.thresholdText}` }); notifiedAt.set(w.id, Date.now()); } catch {}
       }
       alarmStates.set(w.id, w.status);
@@ -91,13 +97,20 @@ function activate(ctx) {
       const cpu = cpuUsage(previous, current); previous = current;
       const [memory, external] = await Promise.all([sensors.memory(), sensors.external()]);
       if (closed) return;
+      // Explicit telemetry wins. An FPS island also works without opening the phone dashboard.
+      const phoneActive = Date.now() - lastViewed < 10000;
+      const pageNeedsFps = phoneActive && config.pages.some(p => p.enabled !== false && [...p.tiles, ...(p.portrait || [])].some(tile => tile.metric === 'fps'));
+      const islandNeedsFps = config.islandEnabled && config.islandDisplay === 'fps' && Date.now() - lastIslandViewed < 10000;
+      const automatic = fps.sample(config.fpsEnabled && (pageNeedsFps || islandNeedsFps) && !external.readings.fps);
+      fpsError = external.readings.fps ? '' : automatic.error;
+      fpsDetail = external.readings.fps ? external.readings.fps.detail : (!config.fpsEnabled && fps.available ? msg('det.fpsEnable') : automatic.detail);
       const now = Date.now();
       const old = now - slowTime > 15000;
-      readings = { ...(old ? {} : slowReadings), ...external.readings,
+      readings = { ...(old ? {} : slowReadings), ...automatic.readings, ...external.readings,
         cpu: { value: cpu, source: msg('src.system'), detail: msg('det.cpu', { cores: os.cpus().length }) }, memory };
       if (process.platform !== 'win32') readings.load = { value: os.loadavg()[0] / Math.max(1, os.cpus().length) * 100, source: msg('src.system'), detail: msg('det.load') };
       for (const d of model.definitions) {
-        if (!readings[d.id]) readings[d.id] = { value: null, source: '', detail: msg(d.id === 'fps' ? 'det.fpsMissing' : d.id === 'load' ? 'det.loadWindows' : 'det.missing') };
+        if (!readings[d.id]) readings[d.id] = { value: null, source: '', detail: d.id === 'fps' && fpsDetail ? fpsDetail : msg(d.id === 'fps' ? 'det.fpsMissing' : d.id === 'load' ? 'det.loadWindows' : 'det.missing') };
         const history = (histories[d.id] || []).filter(p => p.x >= now / 1000 - 60);
         // Split on missing readings rather than drawing a line across a sensor outage.
         histories[d.id] = Number.isFinite(readings[d.id].value) ? [...history, { x: now / 1000, y: readings[d.id].value }].slice(-120) : [];
@@ -133,11 +146,59 @@ function activate(ctx) {
     applyLanguage(value);
   }
 
+  function setIslandOption(action, value) {
+    if (typeof value !== 'boolean') throw new VitalsError('err.setting');
+    const next = action === 'islandEnabled' ? { ...config, islandEnabled: value }
+      : action === 'islandFps' ? { ...config, islandDisplay: value ? 'fps' : 'system' }
+      : { ...config, notifications: value };
+    // Notices belong to Vitals only. Turning them off must also dismiss earlier threshold notices.
+    if (!next.notifications || !next.islandEnabled) {
+      for (const definition of model.definitions) { try { ctx.notifications?.clear?.(`vitals-${definition.id}`); } catch {} }
+    }
+    save(next);
+    if ((!next.islandEnabled || next.islandDisplay !== 'fps') && Date.now() - lastViewed >= 10000) fps.sample(false);
+    clearTimeout(timer); if (!sampling) void sample();
+    return { saved: true };
+  }
+
+  function enableFps() {
+    if (!fps.available || closed) throw new VitalsError('err.setting');
+    if (enablePending) return enablePending;
+    fpsSetupMessage = msg('pc.fpsInstalling'); rebuild();
+    enablePending = (async () => {
+      try {
+        const result = await fps.install();
+        if (closed) return { enabled: false };
+        if (result.installed) {
+          fpsSetupMessage = msg('pc.fpsEnabled');
+          save({ ...config, fpsEnabled: true }); fps.reset();
+          clearTimeout(timer); if (!sampling) void sample();
+          return { enabled: true };
+        }
+        fpsSetupMessage = msg(result.cancelled ? 'pc.fpsCancelled' : 'pc.fpsFailed'); rebuild();
+        return { enabled: false, cancelled: !!result.cancelled };
+      } catch {
+        fpsSetupMessage = msg('pc.fpsFailed'); rebuild(); return { enabled: false };
+      }
+    })();
+    enablePending.then(() => { enablePending = null; });
+    return enablePending;
+  }
+
+  function disableFps() {
+    if (!fps.available) throw new VitalsError('err.setting');
+    fps.sample(false);
+    if (readings.fps?.source?.key !== 'src.telemetry') { delete readings.fps; delete histories.fps; }
+    fpsSetupMessage = null; fpsError = ''; fpsDetail = msg('det.fpsEnable');
+    save({ ...config, fpsEnabled: false });
+    return { enabled: false };
+  }
+
   rebuild();
   timer = setTimeout(sample, 250); timer.unref?.();
   void slowSample();
   return {
-    data() { return cache; },
+    data() { lastViewed = Date.now(); return cache; },
     command(action, value) {
       if (closed) throw new VitalsError('err.closed');
       if (action === 'saveWidget') {
@@ -155,7 +216,7 @@ function activate(ctx) {
         clearTimeout(timer); if (!sampling) void sample();
       } else if (action === 'notifications') {
         if (typeof value !== 'boolean') throw new VitalsError('err.notifications');
-        save({ ...config, notifications: value });
+        return setIslandOption(action, value);
       } else if (action === 'language') {
         setLanguage(value);
         save(config);
@@ -172,35 +233,56 @@ function activate(ctx) {
         openEditor().catch(e => { ctx.log?.warn?.('Page editor:', e.message); });
         return { opened: true };
       } else if (action === 'refresh') {
+        fps.reset?.();
         clearTimeout(slowTimer); if (!slowBusy) void slowSample();
         clearTimeout(timer); if (!sampling) void sample();
       } else throw new VitalsError('err.unknown');
       return { saved: true };
     },
     island() {
+      if (!config.islandEnabled) return null;
+      if (config.islandDisplay === 'fps') lastIslandViewed = Date.now();
       const cpu = cache.widgets.find(w => w.id === 'cpu');
-      return { priority: cache.alerts.length ? 12 : 1,
-        compact: { title: cache.alerts.length ? cache.status : `CPU ${cpu.display}`, accent: cache.alerts.length ? '#FF9F0A' : '#63E6BE' },
-        expanded: { title: 'Vitals', subtitle: `${cpu.display} CPU · ${cache.widgets.find(w => w.id === 'memory').display} RAM`, footer: { label: t('island.openEditor'), action: 'openEditor', note: cache.status } } };
+      const memory = cache.widgets.find(w => w.id === 'memory'), frameRate = cache.widgets.find(w => w.id === 'fps');
+      const percentage = widget => widget.available ? `${Math.round(widget.value)}%` : '—';
+      const fpsText = frameRate.available ? frameRate.display : 'FPS —';
+      const compact = config.islandDisplay === 'fps' ? fpsText : `CPU${percentage(cpu)} RAM${percentage(memory)}`;
+      const expanded = config.islandDisplay === 'fps' ? fpsText : `CPU ${cpu.display} · RAM ${memory.display}`;
+      const showAlerts = config.notifications && cache.alerts.length > 0;
+      const note = showAlerts ? cache.status : config.islandDisplay === 'fps' && !frameRate.available ? frameRate.hint || frameRate.detail : '';
+      return { priority: showAlerts ? 12 : 1,
+        compact: { title: compact, accent: showAlerts ? '#FF9F0A' : '#63E6BE' },
+        expanded: { title: 'Vitals', subtitle: expanded, footer: { label: t('island.openEditor'), action: 'openEditor', note } } };
     },
     settings: {
       describe() { return { status: { label: cache.status, tone: cache.alerts.length ? 'warning' : 'success' }, items: [
         { type: 'button', label: t('island.openEditor'), action: 'openEditor', primary: true },
         { type: 'text', text: t('pc.intro') },
+        { type: 'toggle', label: t('pc.showIsland'), detail: t('pc.islandScope'), value: config.islandEnabled, action: 'islandEnabled' },
+        { type: 'toggle', label: t('pc.islandFps'), detail: t('pc.islandFpsDetail'), value: config.islandDisplay === 'fps', action: 'islandFps' },
+        { type: 'toggle', label: t('pc.alerts'), detail: t('pc.islandAlertsDetail'), value: config.notifications, action: 'notifications' },
         ...(editorUrl ? [{ type: 'text', text: t('pc.editorAt', { url: editorUrl.split('#')[0] }) }] : []),
         { type: 'note', text: t('pc.sources') },
+        ...(fps.available ? [
+          { type: 'note', text: t('pc.fpsAuto') },
+          { type: 'button', label: t(config.fpsEnabled && fps.installed() ? 'pc.disableFps' : 'pc.enableFps'), action: config.fpsEnabled && fps.installed() ? 'disableFps' : 'enableFps' },
+          { type: 'note', text: t('pc.fpsConsent') },
+          ...(cache.fpsSetupMessage ? [{ type: 'text', text: cache.fpsSetupMessage }] : []),
+          ...(cache.fpsStatus ? [{ type: 'text', text: cache.fpsStatus }] : [])
+        ] : []),
         { type: 'text', text: t('pc.telemetryFile', { path: path.join(ctx.dataDir, 'telemetry.json') }) },
-        { type: 'note', text: t('pc.telemetryFormat') },
-        { type: 'toggle', label: t('pc.alerts'), value: config.notifications, action: 'notifications' }
+        { type: 'note', text: t('pc.telemetryFormat') }
       ] }; },
       action(action, values) {
+        // Installation is desktop-settings-only; a phone command cannot trigger a UAC prompt.
+        if (action === 'enableFps') return enableFps();
+        if (action === 'disableFps') return disableFps();
         if (action === 'openEditor') { openEditor().catch(e => ctx.log?.warn?.('Page editor:', e.message)); return { opened: true }; }
-        if (action !== 'notifications' || typeof values?.on !== 'boolean') throw new VitalsError('err.setting');
-        save({ ...config, notifications: values.on });
-        return { saved: true };
+        if (!['notifications', 'islandEnabled', 'islandFps'].includes(action)) throw new VitalsError('err.setting');
+        return setIslandOption(action, values?.on);
       }
     },
-    close() { closed = true; try { if (editorWindow && !editorWindow.isDestroyed()) editorWindow.close(); } catch {} editor.close(); clearTimeout(timer); clearTimeout(slowTimer); sensors.close(); }
+    close() { closed = true; try { if (editorWindow && !editorWindow.isDestroyed()) editorWindow.close(); } catch {} editor.close(); clearTimeout(timer); clearTimeout(slowTimer); sensors.close(); fps.close(); }
   };
 }
 

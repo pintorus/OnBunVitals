@@ -262,6 +262,14 @@ const S = {
   'ed.newPage': ['Page {n}', 'Page {n}', 'Página {n}', 'Seite {n}']
 };
 
+// Optional feature messages share the same six-language registry as the rest of Vitals.
+for (const file of ['./fps-messages.cjs', './island-messages.cjs']) {
+  for (const [key, translations] of Object.entries(require(file))) {
+    S[key] = translations.slice(0, 4);
+    EXTRA.zh[key] = translations[4]; EXTRA.ja[key] = translations[5];
+  }
+}
+
 let current = 'fr';
 
 function resolve(preference, systemLocales = []) {

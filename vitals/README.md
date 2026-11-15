@@ -36,11 +36,29 @@ Existing setups from version 1.0 are converted into pages automatically on first
 
 The editor is served only on `127.0.0.1`, behind a random token that changes on every launch.
 
+## Island settings
+
+Open **Onbun island → Settings → Vitals**:
+
+- **Show Vitals on the island** hides or restores Vitals' compact readout and expanded card. Other Onbun apps and the phone dashboard stay available. On by default.
+- **Show FPS on the island** switches both island views between FPS and CPU/RAM. CPU/RAM is the default. Changing the display does not install or enable automatic FPS collection; valid telemetry can provide FPS without setup.
+- **Threshold notifications** turns Vitals' threshold notices and warning emphasis on or off. Turning it off clears earlier Vitals threshold notices and keeps the readings visible. Off by default. Hiding Vitals also clears and suppresses its notices.
+
+An explicitly enabled FPS collector can serve the FPS island without opening the phone dashboard. Returning to CPU/RAM or hiding Vitals stops island-only FPS collection; the phone can continue requesting readings while its dashboard is open.
+
 ## Sensor availability
 
 CPU, memory and system-disk space use operating-system data. Unix load is available on macOS/Linux. NVIDIA sensors use `nvidia-smi`; supported Linux sensors and Windows Libre Hardware Monitor WMI provide additional readings.
 
-FPS require a real reading from your game or capture tool through the local telemetry file. Other unsupported GPU/temperature readings can use the same interface. Missing measurements show **Indisponible** (Unavailable); they are never simulated.
+On **Windows x64** (and Windows ARM64 with x64 emulation), automatic FPS is **off by default**. The FPS tile says **Enable FPS in Onbun island settings**. Installing or opening Vitals does not install a service, start an FPS helper or show a permission prompt.
+
+To opt in, open **Onbun island → Settings → Vitals → Enable FPS** and approve Windows setup. Only a fixed-payload native installer is elevated. It installs the shared Onbun FPS collector into a protected Program Files folder, using the limited **LocalService** account. Onbun stays unelevated and your account's group memberships are unchanged. Cancelling or failing setup leaves automatic FPS off.
+
+The collector starts on demand while Vitals is open on the phone and an enabled page needs FPS, or while its FPS island is active. Its native client checks the active window once per second, and the service collects only that process's presentation events through PresentMon 2.6.0. It shuts down after 15–20 seconds without requests. **Disable automatic FPS** stops the client immediately; the installed service remains available for future opt-in but does not start at Windows boot. To remove the optional component, run `bin/OnbunFpsSetup.exe --uninstall` and approve its removal.
+
+DirectX, OpenGL and Vulkan applications are supported where Windows exposes usable events. Keep the game window active. This measures application presentation rate, not monitor refresh rate; it cannot guarantee coverage of every game or protected application.
+
+**macOS and Linux use local telemetry by default.** No FPS setup button, installer, client or service runs on those systems. On every platform, valid telemetry FPS takes priority, including zero. Other unsupported GPU/temperature readings can use the same interface. Missing measurements show **Indisponible** (Unavailable); they are never simulated.
 
 See the [full documentation](docs/README.md) for the sensor matrix, telemetry format, Python publishing example, troubleshooting and development reference.
 
@@ -49,7 +67,7 @@ See the [full documentation](docs/README.md) for the sensor matrix, telemetry fo
 Run from this app folder:
 
 ```sh
-node test/vitals.test.cjs
+node --test test/*.test.cjs
 ```
 
 With an Onbun source checkout, also validate the app using:
@@ -58,4 +76,4 @@ With an Onbun source checkout, also validate the app using:
 npm run check:apps -- /absolute/path/to/OnBunVitals/vitals
 ```
 
-The app’s screen uses the [official Onbun Kit schema](https://mathieudvv.github.io/WinMore-releases/data/screen.schema.json). Hardware behavior has been exercised on Linux; Windows, macOS and the phone renderers still need hands-on verification.
+The app’s screen uses the [official Onbun Kit schema](https://mathieudvv.github.io/WinMore-releases/data/screen.schema.json). Native frame aggregation, local pipe ACLs and impersonation have been tested without installing a service. UAC installation, live LocalService capture and native phone rendering still need hands-on verification. This development build is unsigned; sign the native collector and setup before app-store distribution. The collector build uses Onbun's existing Windows signing configuration. No driver or game injection is used.

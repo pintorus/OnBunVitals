@@ -1,0 +1,11 @@
+'use strict';
+
+// fr, en, es, de, zh, ja.
+module.exports = {
+  'pc.showIsland': ['Afficher Vitals sur l’îlot', 'Show Vitals on the island', 'Mostrar Vitals en la isla', 'Vitals auf der Insel anzeigen', '在灵动岛上显示 Vitals', 'アイランドに Vitals を表示'],
+  'pc.islandScope': ['Masque uniquement Vitals. Les autres apps Onbun et le tableau de bord du téléphone restent disponibles.', 'Only hides Vitals. Other Onbun apps and the phone dashboard remain available.', 'Solo oculta Vitals. Las otras apps de Onbun y el panel del teléfono siguen disponibles.', 'Blendet nur Vitals aus. Andere Onbun-Apps und das Handy-Dashboard bleiben verfügbar.', '仅隐藏 Vitals。其他 Onbun 应用和手机仪表盘仍可使用。', 'Vitals のみを非表示にします。他の Onbun アプリとスマートフォンのダッシュボードは引き続き利用できます。'],
+  'pc.islandFps': ['Afficher les FPS sur l’îlot', 'Show FPS on the island', 'Mostrar FPS en la isla', 'FPS auf der Insel anzeigen', '在灵动岛上显示 FPS', 'アイランドに FPS を表示'],
+  'pc.islandFpsDetail': ['Désactivé : CPU et RAM. Activé : FPS. La mesure automatique des FPS reste facultative et nécessite son activation ci-dessous.', 'Off: CPU and RAM. On: FPS. Automatic FPS collection stays optional and must be enabled below.', 'Desactivado: CPU y RAM. Activado: FPS. La medición automática es opcional y debe activarse abajo.', 'Aus: CPU und RAM. Ein: FPS. Die automatische Messung bleibt optional und muss unten aktiviert werden.', '关闭：CPU 和内存。开启：FPS。自动 FPS 采集仍为可选项，需要在下方启用。', '無効：CPU とメモリ。有効：FPS。自動 FPS 取得は任意で、下の設定で有効にする必要があります。'],
+  'pc.alerts': ['Notifications de seuil', 'Threshold notifications', 'Notificaciones de umbral', 'Schwellenwert-Benachrichtigungen', '阈值通知', 'しきい値の通知'],
+  'pc.islandAlertsDetail': ['Affiche les alertes de seuil et les notifications critiques. Désactivé : conserve les mesures et efface les anciennes notifications Vitals.', 'Show threshold alerts and critical notifications. Off keeps the readings and clears earlier Vitals notifications.', 'Muestra alertas de umbral y notificaciones críticas. Al desactivarlo, conserva las medidas y borra las notificaciones anteriores de Vitals.', 'Zeigt Schwellenwertwarnungen und kritische Benachrichtigungen. Aus behält die Messwerte und löscht frühere Vitals-Benachrichtigungen.', '显示阈值警报和严重通知。关闭后保留读数，并清除此前的 Vitals 通知。', 'しきい値の警告と重大な通知を表示します。無効にすると、測定値を維持し、以前の Vitals 通知を消去します。']
+};
